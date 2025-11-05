@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { FileText, Edit3, Save, X, Download, Eye, EyeOff } from 'lucide-react';
 import negoziData from './data/negozi.json';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 // =======================
 // Helpers formattazione TXT
 // =======================
@@ -58,7 +59,7 @@ const Movimentazione = ({ user }) => {
       if (!token) return;
 
       const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      const res = await fetch('http://localhost:3001/api/movimentazioni', {
+      const res = await fetch(`${API_BASE_URL}/movimentazioni`, {
         headers: { Authorization: authHeader, 'Content-Type': 'application/json' }
       });
 
@@ -100,7 +101,7 @@ const Movimentazione = ({ user }) => {
       }
       const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
 
-     const res = await fetch('http://localhost:3001/api/prodotti', {
+     const res = await fetch(`${API_BASE_URL}/prodotti`, {
         headers: { Authorization: authHeader, 'Content-Type': 'application/json' }
       });
       if (!res.ok) throw new Error(`Errore ${res.status}`);
@@ -956,7 +957,7 @@ const saveUnifiedTxtFile = async (movimentiPayload) => {
     const dataOggi = new Date().toISOString().split('T')[0];
     const nomeFile = `MOV_${dataOggi}-${movimentiPayload[0]?.codice_origine || 'ORIG'}-${movimentiPayload[0]?.codice_destinazione || 'DEST'}-ALL.txt`;
 
-    const response = await fetch('http://localhost:3001/api/txt-files/create', {
+    const response = await fetch(`${API_BASE_URL}/txt-files/create`, {
       method: 'POST',
       headers: {
         'Authorization': authHeader,
