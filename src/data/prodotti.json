@@ -1,0 +1,1050 @@
+[
+  {
+    "Description": "VETRO PEPSI 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "VETRO PEPSI ZERO 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "LATTINA PEPSI 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "LATTINA PEPSI ZERO 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Caff\u00e8 Capsule Normale",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Fiordilatte",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Mozzarella di Bufala",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Burrata",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Gorgonzola DOP dolce",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Prosciutto Crudo S/O",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Prosciutto Cotto",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Mortadella pistacchio",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Spianata Piccante",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Bottiglia Prosecco FF",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Patate al forno",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Polpette di carne",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "IMPASTO CLASSICO CDP",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "IMPASTO NERO CDP",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "IMPASTO LOWCARB CDP",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "IMPASTO SOTTILE CLASSICO CDP",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bott. Bollicine Ros\u00e8",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bott. Alta Langa DOCG",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bott. Sicilia Grillo",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bott. Traminer",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bott.Trullo di Noha",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bott. Chianti",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bott. Nebbiolo Langhe",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bottiglia Vino Rosso FDV",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bottiglia Vino Bianco FDV",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Acqua Naturale ASPORTO 1/2 LT",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Acqua Gasata ASPORTO 1/2 LT",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Lipton ice tea limone 33cl",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Lipton ice tea pesca 33cl",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "BRIK LIPTON ICE TEA LIMONE",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "BRIK LIPTON ICE TEA PESCA",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "ARANCIATA SAN PELLEGRINO BIO 20CL VP",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "VETRO 7UP 33 CL VP",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "LATTINA 7UP 33 CL VP",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Tonica Fever Tree Water Indian 20CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "TONICA MEDITERRANEAN FEVER TREE",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "TONICA ELDER FLOWER",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "LEMON SODA 20CL VP",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Fusto Pepsi PEPSI PREMIX SPINA 18L",
+    "BaseUoM": "FUSTO18L"
+  },
+  {
+    "Description": "Fusto Pepsi PEPSI MAX0 PREMIX SPINA 18L",
+    "BaseUoM": "FUSTO18L"
+  },
+  {
+    "Description": "Heineken 0.0",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Bott Ichnusa 33 cl NN FILTRATA",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Fusto di Birra Ichnusa Classico",
+    "BaseUoM": "FS_30L"
+  },
+  {
+    "Description": "Fusto Birra Non Filtrata Ichnusa",
+    "BaseUoM": "FS_20LT"
+  },
+  {
+    "Description": "Fusto Birra Rossa Moretti",
+    "BaseUoM": "FS_20LT"
+  },
+  {
+    "Description": "Fusto Birra Messina",
+    "BaseUoM": "FS_20LT"
+  },
+  {
+    "Description": "Ginger Beer Kinley 20CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Cachaca Sagatiba Pura 1LT",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Gin Tanqueray Alcohol Free",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Gin Mare",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Gin Hendrick's 1886",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Gin Tanqueray London Dry",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Tequila Espolon Blanco 70 CL",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Amaro Jefferson",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Vodka Ketel 0,7 CL",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Tequila Espolon Reposado 70 CL",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Rum Zacapa centenario 23YO",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Vermouth Carpano Classico 1LT Rosso",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Ilegal Mezcal Reposado",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Whisky Bullet Bourbon 70cl",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Limoncello",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Jagermeister 1L",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Amaro del capo 1L",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Montenegro 0,70 L",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Sambuca 1,5L",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Mirto",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Campari Bitter",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Aperol 1L",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Camatti 1L",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Grappa Gialla",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Grappa Bianca",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Birra senza Glutine",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Birra La Russa",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "BIRRA L'IPPA FLIPPA BALADIN 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "BIRRA ISAAC BALADIN 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "BIRRA NAZIONALE S/GLUT BALADIN 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "BIRRA SUPER BITTER BALADIN 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "BIRRA BOTANIC ANALCOLICA BALADIN 33CL",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Amaro Montenegro 1,5L",
+    "BaseUoM": "BT_1.5L"
+  },
+  {
+    "Description": "Amaro Del Ciclista 70cl",
+    "BaseUoM": "BT_70CL"
+  },
+  {
+    "Description": "Amaro D'Erbe Kaiserforst 1L",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Bailey's",
+    "BaseUoM": "BT_70CL"
+  },
+  {
+    "Description": "Amaro San Simone",
+    "BaseUoM": "BT_70CL"
+  },
+  {
+    "Description": "Liquore Caff\u00e8 Borghetti",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Whisky Bulleit Rye",
+    "BaseUoM": "BT_70CL"
+  },
+  {
+    "Description": "Grappa Vermentino La Superba",
+    "BaseUoM": "BOT_50CL"
+  },
+  {
+    "Description": "Grappa Bianchetta Bunassa",
+    "BaseUoM": "BT_50CL"
+  },
+  {
+    "Description": "Amaro Bi\u00e0nch",
+    "BaseUoM": "BT_70CL"
+  },
+  {
+    "Description": "Fusto Spritz",
+    "BaseUoM": "FS_20LT"
+  },
+  {
+    "Description": "FUSTO AMERICANO",
+    "BaseUoM": "FS_20LT"
+  },
+  {
+    "Description": "FUSTO HUGO",
+    "BaseUoM": "FS_20LT"
+  },
+  {
+    "Description": "FUSTO MOSCOW MULE",
+    "BaseUoM": "FS_20LT"
+  },
+  {
+    "Description": "FUSTO NEW SPRITZ",
+    "BaseUoM": "FS_20LT"
+  },
+  {
+    "Description": "Nduja",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Porchetta",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Wurstel",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Salsiccia di Suino",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Guanciale",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Salame Piccante",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pollo Cotto per Insalate",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pasta mezze penne precotta",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "ORZO VERDURE PESTO",
+    "BaseUoM": "PZ_250GR"
+  },
+  {
+    "Description": "Cavolo nero",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Scarola",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Crema di zucca",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Zucca al forno",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "CIPOLLA CARAMELLATA",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Crema Di Zucchine e Menta",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Rucola 4 Gamma",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Misticanza",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Basilico",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Menta",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Zucchine",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Aglio",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Arance",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Limoni",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pomodoro Datterino Rosso",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pomodoro Datterino Giallo",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Avocado",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Pomodoro Cuore di bue",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Melanzane",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Caff\u00e8 Decaffeinato Capsule",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Caff\u00e8 Orzo Capsule",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Caff\u00e8 Ginseng Capsule",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Nutella",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Ovetto KinderJoy",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "SUPPLI'",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "CROCCHETTA di PATATE alla Brace",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "CACIO/PEPE SUPPLI'",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Panelle",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Patate Fritte - Gelo",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Cheesecake - Torta",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "GELATO FIOR DI LATTE",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "GELATO SORBETTO LIMONE",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "TIRAMISU TEGLIA FD GELO",
+    "BaseUoM": "PORZ"
+  },
+  {
+    "Description": "TORTINO AL CIOCCOLATO CARTONE FD GELO",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Sugo carbonara (s/guanciale, s/grasso)",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Sugo Cacio e Pepe",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "MISTO PER SOFFRITTO - GELO",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "5 Sensi - Fetta Torta",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "MONO Delizia Limone",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Pistacchio - Fetta di Torta",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "TORTA CHEESECAKE LAMPONI",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "TORTA ALLA NOCCIOLA CON BASE FROLLA AL CACAO",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Profiterol",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Mousse al Cioccolato",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Fragole, Lamponi, Yogurt - Fetta Torta",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Panissa",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Provola/Cacio cavallo",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Grana Padano scaglie",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Ciliegine di Bufala FDV",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Provolone del Monaco",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Parmigiano Reggiano Grattugiato",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Mozzarella Vegana",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pecorino Romano grattugiato",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Stracciatella Affumicata",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "FETA GRECA",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Ricotta affumicata",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Grana Padano Grattugiato",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Latte Uht Parzialmente Scremato",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Funghi Misti Vaso",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Carciofi",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "IMPASTO GLUTEN FREE",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Pepe Nero Grani",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Friarielli",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Olive Denocciolate",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Cotolette Pollo Milanese",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Salsa Yogurt - dressing",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Latte Uht Intero",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Peperoncino",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "MANDORLE TOSTATE e/o AFFETTATE",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pomodori Secchi",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Tarallo Mandorlato",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Origano",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pomodoro CONCETTINA",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Salsa Pistacchio/Pesto Pistacchio",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Frutti Capperi/Cucunci",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Senape al miele",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Penne Rigate",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Granella di Pistacchio",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Patatine Chips Aperitivo",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Semi di Zucca",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Spaghetti",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Tonno Sott'olio In Lattina",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pesto Genovese",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Olio EVO",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Cialda Fra Diavolo - logo",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Capperi",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Acciughe/Alici Cantabrico Sott'Olio",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Pomodorino Giallo Vaso/Latta",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Fili di peperoncino",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Topping Pistacchio",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Topping Amarene",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Topping Frutti di Bosco",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Topping Cioccolato",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Mezze maniche",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Spaghettoni",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Miele",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "CREMA \"DIAVOLETTO\" OLIVERI",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "SALSA BBQ NDUJA SPILINGA SQUEEZE",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "CREMA DI PEPERONI",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "HUMMUS DI CECI",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Farina Spolvero Media",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Olio EVO Sala 500 ml",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Olio Peperoncino Sala 250 ml",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Aceto Balsamico di Modena Sala 250 ml",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Aceto Balsamico di Modena Sala 250 ml",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Zucchero a Velo",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Cacao Amaro",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Sale Grosso",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Maionese Bustine",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Aceto Bianco",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Sale Fino",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Zucchero di Canna in Bustine",
+    "BaseUoM": "GR"
+  },
+  {
+    "Description": "Dolcificante in Bustine",
+    "BaseUoM": "GR"
+  },
+  {
+    "Description": "Olio di Girasole",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "CHUPA CHUPA",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Ketchup Bustine",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Olio Monodose Busta 5ml",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Aceto balsamico bustine",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Zucchero Bianco in Bustine",
+    "BaseUoM": "GR"
+  },
+  {
+    "Description": "Carta Igienica",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Detergente Brillantante Anticalcareo 750ML",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "TORK S4 SAPONE ANTIMICROBICO",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Candeggina",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Detergente Sgrassante idroalcolico 750ML",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "INFYNITI SPRINT DAY SC",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "TORK S4 PREMIUM SAPONE SCHIUMA DELICATO",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "CONTENITORE BIANCO PAP C/COP BLU - LT. 70",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "GUANTI MONOUSO NITRILE BLU S/POLVERE PALMPRO665 TG.M",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "DETERGENTE MANI",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Detergente Disincrostante",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Spray Pulizia Universale",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "LIQUIDO PIATTI",
+    "BaseUoM": "CF_5KG"
+  },
+  {
+    "Description": "LIQUIDO PIATTI",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Detergente pavimento",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Brillantante per lavastoviglie 5KG",
+    "BaseUoM": "CF_5KG"
+  },
+  {
+    "Description": "Brillantante per lavastoviglie 5KG",
+    "BaseUoM": "CT_10KG"
+  },
+  {
+    "Description": "Detersivi lavastoviglie",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Detergente WC 75 CL",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "Sale per addolcitori d'acqua",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "BOTTIGLIA INFYNITI MULTIFOOD",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "GUANTI MONOUSO NITRILE BLU TG. L",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "GUANTI MONOUSO NITRILE NERO TG. S",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "INFYNITI ELKASAN 5C",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "INFYNITI ELKASAN CAPS 100 ML",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "INFYNITI MULTIFOOD 5C",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "INFYNITI MULTIFOOD CAPS 100 ML",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "INFYNITI SPRINT DAY CAPS 100 ML",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "LUCART ASCIUGAMANI PIEGATI A \"Z\" ECO Z",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "PUSH&FRESH DEO AL PROFUMO FIORITO",
+    "BaseUoM": "LT"
+  },
+  {
+    "Description": "FRITEX BARATTOLO",
+    "BaseUoM": "KG"
+  },
+  {
+    "Description": "Bobina Carta",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Pellicola plastica",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Rotolo alluminio",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Cartone Pizza Fra Diavolo",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "CARTONE FRITTI",
+    "BaseUoM": "PCS"
+  },
+  {
+    "Description": "Tovagliolo Logato",
+    "BaseUoM": "PCS"
+  }
+]
