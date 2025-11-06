@@ -1,42 +1,44 @@
 // frontend/src/pages/admin/TxtFilesManager.js
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Download, X, FileText, RefreshCw, Filter, Search } from 'lucide-react';
+import negoziData from '../../data/negozi.json';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
-/** Estrae info punto vendita dal filename
- *  - MOV_YYYY-MM-DD-ORIG-DEST-ALL.txt  -> label: "ORIG → DEST", keys: ["ORIG","DEST"]
- *  - NUMERO_DATA_FORNITORE_CODICEPV(.+).txt -> label: "CODICEPV", keys: ["CODICEPV"]
+/** Trova l'ULTIMO gruppo di cifre nel filename (prima di .txt, ignorando _ERRORI)
+ *  Esempi:
+ *   - "FAT_123_2025-11-06_FORN_XYZ_117.txt"   -> "117"
+ *   - "ABC_2025-11-06_136_ERRORI.txt"         -> "136"
+ *   - "MOV_2025-11-06-MIISO-RMTRA-ALL.txt"    -> null (nessun codice numerico)
  */
-function extractStoreInfo(filename) {
-  try {
-    const base = filename.replace(/\.txt$/i, '');
-    // rimuovi eventuale suffisso _ERRORI
-    const noErr = base.endsWith('_ERRORI') ? base.slice(0, -'_ERRORI'.length) : base;
+function extractLastNumericCode(filename) {
+  if (!filename) return null;
+  let base = filename.replace(/\.txt$/i, '');
+  base = base.replace(/_ERRORI$/i, '');
+  // prendi TUTTE le occorrenze numeriche e scegli l'ultima
+  const matches = [...base.matchAll(/\d+/g)].map(m => m[0]);
+  if (!matches.length) return null;
+  return matches[matches.length - 1];
+}
 
-    if (noErr.startsWith('MOV_')) {
-      // MOV_YYYY-MM-DD-ORIG-DEST-...
-      // prendo segmenti dopo 'MOV_'
-      const after = noErr.slice(4);
-      // Esempio: 2025-11-06-MIISO-RMTRA-ALL
-      const parts = after.split('-');
-      // parts[0]=date, parts[1]=ORIG, parts[2]=DEST
-      const origin = parts[1] || '';
-      const dest = parts[2] || '';
-      const label = (origin && dest) ? `${origin} → ${dest}` : (origin || dest || '-');
-      const keys = [origin, dest].filter(Boolean);
-      return { type: 'mov', label, keys };
-    }
+/** Prova a mappare il codice numerico al nome negozio usando negozi.json */
+function mapCodeToStoreName(codeStr) {
+  if (!codeStr) return null;
+  // tenta su più campi possibili per robustezza
+  const found = negoziData.find(n =>
+    String(n.id ?? '') === codeStr ||
+    String(n.codice_magazzino ?? '') === codeStr ||
+    String(n.codice ?? '') === codeStr // nel caso in cui il json usi "codice" numerico
+  );
+  return found?.nome || null;
+}
 
-    // formato fattura: ..._<CODICEPV>
-    const m = noErr.match(/_(.+)$/);
-    if (m && m[1]) {
-      return { type: 'inv', label: m[1], keys: [m[1]] };
-    }
-  } catch (_) {
-    // ignore
-  }
-  return { type: 'unknown', label: '-', keys: [] };
+/** Estrae le info PV dal nome file secondo la nuova regola */
+function extractStoreInfoFromFilename(filename) {
+  const code = extractLastNumericCode(filename);
+  const name = mapCodeToStoreName(code);
+  const label = code ? (name ? `${code} – ${name}` : code) : '-';
+  return { code: code || null, name: name || null, label };
 }
 
 const TxtFilesManager = () => {
@@ -46,7 +48,7 @@ const TxtFilesManager = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Preview modal state
+  // Preview modal
   const [showPreview, setShowPreview] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState('');
@@ -56,7 +58,7 @@ const TxtFilesManager = () => {
 
   // Filtri
   const [searchTerm, setSearchTerm] = useState('');
-  const [storeFilter, setStoreFilter] = useState('ALL');
+  const [storeFilter, setStoreFilter] = useState('ALL'); // usa il "code" come value
 
   const authHeader = () => {
     const token = localStorage.getItem('token') || '';
@@ -74,7 +76,7 @@ const TxtFilesManager = () => {
       const data = await res.json();
 
       const list = (Array.isArray(data.files) ? data.files : []).map(f => {
-        const storeInfo = extractStoreInfo(f.name);
+        const storeInfo = extractStoreInfoFromFilename(f.name);
         return { ...f, storeInfo };
       });
       setTxtFiles(list);
@@ -118,12 +120,12 @@ const TxtFilesManager = () => {
     }
   };
 
-  // Scarica -> elimina -> aggiorna UI (chiude modal se richiesto)
+  // Scarica -> elimina -> aggiorna UI
   const downloadTxtFile = async (filename, { closePreviewAfter = false } = {}) => {
     try {
       setError('');
 
-      // 1) Scarico il file
+      // 1) Scarico
       const respDownload = await fetch(`${API_BASE_URL}/txt-files/${encodeURIComponent(filename)}`, {
         headers: { Authorization: authHeader() }
       });
@@ -139,7 +141,7 @@ const TxtFilesManager = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      // 2) Elimino il file lato server
+      // 2) Elimino lato server
       const respDelete = await fetch(`${API_BASE_URL}/txt-files/${encodeURIComponent(filename)}`, {
         method: 'DELETE',
         headers: { Authorization: authHeader() }
@@ -154,7 +156,7 @@ const TxtFilesManager = () => {
       setSuccess(`File "${filename}" scaricato ed eliminato.`);
       setTimeout(() => setSuccess(''), 3000);
 
-      // 4) Se viene dal modal, chiudo
+      // 4) Chiudo modal se necessario
       if (closePreviewAfter) {
         setShowPreview(false);
         setSelectedFile(null);
@@ -180,23 +182,27 @@ const TxtFilesManager = () => {
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  // Opzioni filtro punto vendita (derivate dai file presenti)
+  // Opzioni filtro punto vendita (dai codici trovati)
   const storeOptions = useMemo(() => {
-    const set = new Set();
+    const map = new Map(); // code -> label
     txtFiles.forEach(f => {
-      const label = f.storeInfo?.label || '-';
-      if (label && label !== '-') set.add(label);
+      const code = f.storeInfo?.code;
+      const label = f.storeInfo?.label;
+      if (code) map.set(code, label || code);
     });
-    return ['ALL', ...Array.from(set).sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'}))];
+    const arr = Array.from(map.entries())
+      .sort((a,b)=>String(a[0]).localeCompare(String(b[0]), 'it', { numeric: true, sensitivity: 'base' }))
+      .map(([code, label]) => ({ code, label }));
+    return [{ code: 'ALL', label: 'Tutti i punti vendita' }, ...arr];
   }, [txtFiles]);
 
-  // Applica filtri (search + store)
+  // Applica filtri (search + PV code)
   const filteredFiles = useMemo(() => {
     const q = (searchTerm || '').trim().toLowerCase();
     return txtFiles.filter(f => {
       const nameOk = !q || f.name.toLowerCase().includes(q);
-      const storeLabel = f.storeInfo?.label || '-';
-      const storeOk = storeFilter === 'ALL' || storeLabel === storeFilter;
+      const code = f.storeInfo?.code || null;
+      const storeOk = storeFilter === 'ALL' || (code && String(code) === String(storeFilter));
       return nameOk && storeOk;
     });
   }, [txtFiles, searchTerm, storeFilter]);
@@ -229,15 +235,15 @@ const TxtFilesManager = () => {
               type="text"
               value={searchTerm}
               onChange={(e)=>setSearchTerm(e.target.value)}
-              placeholder="Es: MOV_2025-11-06, ..._MIISO.txt"
+              placeholder="Es: MOV_2025-11-06, ..._117.txt"
               className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
             />
             <Search className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
           </div>
         </div>
 
-        {/* Store filter */}
-        <div className="w-full md:w-64">
+        {/* Store filter (per codice numerico) */}
+        <div className="w-full md:w-72">
           <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Filtra per punto vendita</label>
           <div className="relative">
             <select
@@ -246,7 +252,7 @@ const TxtFilesManager = () => {
               className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl bg-white focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
             >
               {storeOptions.map(opt => (
-                <option key={opt} value={opt}>{opt === 'ALL' ? 'Tutti i punti vendita' : opt}</option>
+                <option key={opt.code} value={opt.code}>{opt.label}</option>
               ))}
             </select>
             <Filter className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
