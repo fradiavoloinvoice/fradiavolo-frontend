@@ -1,8 +1,43 @@
 // frontend/src/pages/admin/TxtFilesManager.js
-import React, { useEffect, useState } from 'react';
-import { Eye, Download, X, FileText, RefreshCw } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Eye, Download, X, FileText, RefreshCw, Filter, Search } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
+/** Estrae info punto vendita dal filename
+ *  - MOV_YYYY-MM-DD-ORIG-DEST-ALL.txt  -> label: "ORIG → DEST", keys: ["ORIG","DEST"]
+ *  - NUMERO_DATA_FORNITORE_CODICEPV(.+).txt -> label: "CODICEPV", keys: ["CODICEPV"]
+ */
+function extractStoreInfo(filename) {
+  try {
+    const base = filename.replace(/\.txt$/i, '');
+    // rimuovi eventuale suffisso _ERRORI
+    const noErr = base.endsWith('_ERRORI') ? base.slice(0, -'_ERRORI'.length) : base;
+
+    if (noErr.startsWith('MOV_')) {
+      // MOV_YYYY-MM-DD-ORIG-DEST-...
+      // prendo segmenti dopo 'MOV_'
+      const after = noErr.slice(4);
+      // Esempio: 2025-11-06-MIISO-RMTRA-ALL
+      const parts = after.split('-');
+      // parts[0]=date, parts[1]=ORIG, parts[2]=DEST
+      const origin = parts[1] || '';
+      const dest = parts[2] || '';
+      const label = (origin && dest) ? `${origin} → ${dest}` : (origin || dest || '-');
+      const keys = [origin, dest].filter(Boolean);
+      return { type: 'mov', label, keys };
+    }
+
+    // formato fattura: ..._<CODICEPV>
+    const m = noErr.match(/_(.+)$/);
+    if (m && m[1]) {
+      return { type: 'inv', label: m[1], keys: [m[1]] };
+    }
+  } catch (_) {
+    // ignore
+  }
+  return { type: 'unknown', label: '-', keys: [] };
+}
 
 const TxtFilesManager = () => {
   const [txtFiles, setTxtFiles] = useState([]);
@@ -19,6 +54,10 @@ const TxtFilesManager = () => {
   const [hasErrorsFlag, setHasErrorsFlag] = useState(false);
   const [errorDetails, setErrorDetails] = useState(null);
 
+  // Filtri
+  const [searchTerm, setSearchTerm] = useState('');
+  const [storeFilter, setStoreFilter] = useState('ALL');
+
   const authHeader = () => {
     const token = localStorage.getItem('token') || '';
     return token.startsWith('Bearer ') ? token : `Bearer ${token}`;
@@ -33,7 +72,12 @@ const TxtFilesManager = () => {
       });
       if (!res.ok) throw new Error(`Errore ${res.status}`);
       const data = await res.json();
-      setTxtFiles(Array.isArray(data.files) ? data.files : []);
+
+      const list = (Array.isArray(data.files) ? data.files : []).map(f => {
+        const storeInfo = extractStoreInfo(f.name);
+        return { ...f, storeInfo };
+      });
+      setTxtFiles(list);
     } catch (e) {
       console.error('Errore caricamento TXT:', e);
       setError('Impossibile caricare la lista dei file TXT');
@@ -74,7 +118,7 @@ const TxtFilesManager = () => {
     }
   };
 
-  // ⬇️ Versione aggiornata: scarica -> elimina -> aggiorna UI (chiude modal se richiesto)
+  // Scarica -> elimina -> aggiorna UI (chiude modal se richiesto)
   const downloadTxtFile = async (filename, { closePreviewAfter = false } = {}) => {
     try {
       setError('');
@@ -110,7 +154,7 @@ const TxtFilesManager = () => {
       setSuccess(`File "${filename}" scaricato ed eliminato.`);
       setTimeout(() => setSuccess(''), 3000);
 
-      // 4) Se viene dallo step di preview, chiudo il modal
+      // 4) Se viene dal modal, chiudo
       if (closePreviewAfter) {
         setShowPreview(false);
         setSelectedFile(null);
@@ -136,10 +180,31 @@ const TxtFilesManager = () => {
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
+  // Opzioni filtro punto vendita (derivate dai file presenti)
+  const storeOptions = useMemo(() => {
+    const set = new Set();
+    txtFiles.forEach(f => {
+      const label = f.storeInfo?.label || '-';
+      if (label && label !== '-') set.add(label);
+    });
+    return ['ALL', ...Array.from(set).sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'}))];
+  }, [txtFiles]);
+
+  // Applica filtri (search + store)
+  const filteredFiles = useMemo(() => {
+    const q = (searchTerm || '').trim().toLowerCase();
+    return txtFiles.filter(f => {
+      const nameOk = !q || f.name.toLowerCase().includes(q);
+      const storeLabel = f.storeInfo?.label || '-';
+      const storeOk = storeFilter === 'ALL' || storeLabel === storeFilter;
+      return nameOk && storeOk;
+    });
+  }, [txtFiles, searchTerm, storeFilter]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-fradiavolo-charcoal">File TXT</h2>
           <p className="text-fradiavolo-charcoal-light">Gestione file generati dalle consegne e movimentazioni</p>
@@ -154,6 +219,41 @@ const TxtFilesManager = () => {
         </button>
       </div>
 
+      {/* Filtri */}
+      <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-3 flex flex-col md:flex-row gap-3 md:items-center">
+        {/* Search */}
+        <div className="flex-1">
+          <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Cerca per nome file</label>
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e)=>setSearchTerm(e.target.value)}
+              placeholder="Es: MOV_2025-11-06, ..._MIISO.txt"
+              className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
+            />
+            <Search className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
+          </div>
+        </div>
+
+        {/* Store filter */}
+        <div className="w-full md:w-64">
+          <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Filtra per punto vendita</label>
+          <div className="relative">
+            <select
+              value={storeFilter}
+              onChange={(e)=>setStoreFilter(e.target.value)}
+              className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl bg-white focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
+            >
+              {storeOptions.map(opt => (
+                <option key={opt} value={opt}>{opt === 'ALL' ? 'Tutti i punti vendita' : opt}</option>
+              ))}
+            </select>
+            <Filter className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
+          </div>
+        </div>
+      </div>
+
       {/* Alert */}
       {error && (
         <div className="p-3 rounded-xl border bg-red-50 text-red-800 border-red-200">{error}</div>
@@ -162,6 +262,11 @@ const TxtFilesManager = () => {
         <div className="p-3 rounded-xl border bg-fradiavolo-green/10 text-fradiavolo-green-dark border-fradiavolo-green/30">{success}</div>
       )}
 
+      {/* Counter */}
+      <div className="text-sm text-fradiavolo-charcoal-light">
+        Mostrati {filteredFiles.length} di {txtFiles.length} file
+      </div>
+
       {/* Tabella */}
       <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark overflow-hidden">
         <div className="overflow-x-auto">
@@ -169,6 +274,7 @@ const TxtFilesManager = () => {
             <thead className="bg-fradiavolo-cream">
               <tr className="text-left text-fradiavolo-charcoal">
                 <th className="px-4 py-3">Nome file</th>
+                <th className="px-4 py-3">Punto vendita</th>
                 <th className="px-4 py-3">Dimensione</th>
                 <th className="px-4 py-3">Creato</th>
                 <th className="px-4 py-3">Modificato</th>
@@ -178,22 +284,27 @@ const TxtFilesManager = () => {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={5}>
+                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={6}>
                     Caricamento...
                   </td>
                 </tr>
-              ) : txtFiles.length === 0 ? (
+              ) : filteredFiles.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={5}>
-                    Nessun file TXT disponibile
+                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={6}>
+                    Nessun file TXT corrisponde ai filtri
                   </td>
                 </tr>
               ) : (
-                txtFiles.map((f) => (
+                filteredFiles.map((f) => (
                   <tr key={f.name} className="border-t border-fradiavolo-cream-dark/50">
                     <td className="px-4 py-3 font-medium text-fradiavolo-charcoal flex items-center gap-2">
                       <FileText className="h-4 w-4 text-fradiavolo-red" />
                       <span className="truncate max-w-[46ch]" title={f.name}>{f.name}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center rounded-lg bg-fradiavolo-cream px-2 py-1 text-xs border border-fradiavolo-cream-dark">
+                        {f.storeInfo?.label || '-'}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-fradiavolo-charcoal-light">{humanSize(f.size)}</td>
                     <td className="px-4 py-3 text-fradiavolo-charcoal-light">
