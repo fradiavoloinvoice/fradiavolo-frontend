@@ -5,7 +5,10 @@ import {
   Clock, Search, Filter, Download, Eye, X, FileCheck
 } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+// 🔧 Normalizza la base URL: rimuove un eventuale "/api" e lo slash finale
+const RAW_API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+const API_BASE = RAW_API.replace(/\/api\/?$/, '').replace(/\/$/, '');
+const API_URL  = `${API_BASE}/api`; // usare sempre API_URL + '/...'
 
 const AdminInvoiceManager = () => {
   const [invoices, setInvoices] = useState([]);
@@ -24,7 +27,7 @@ const AdminInvoiceManager = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/admin/invoices`, {
+      const res = await fetch(`${API_URL}/admin/invoices`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Errore nel caricamento fatture');
@@ -84,7 +87,7 @@ const AdminInvoiceManager = () => {
     pending: invoices.filter(i => !i.consegnato).length,
   };
 
-  // Export CSV
+  // Export CSV (senza colonna Totale)
   const handleExport = () => {
     if (filteredInvoices.length === 0) return;
 
