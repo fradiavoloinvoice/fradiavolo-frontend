@@ -33,7 +33,7 @@ const InvoiceProcessorApp = () => {
   const [sheetInvoices, setSheetInvoices] = useState([]);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState('admin-dashboard');
   const [editingInvoice, setEditingInvoice] = useState(null);
   const [errorModalInvoice, setErrorModalInvoice] = useState(null);
   const [errorNotes, setErrorNotes] = useState('');
@@ -582,8 +582,7 @@ const InvoiceProcessorApp = () => {
             user={user}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
-            pendingCount={pendingInvoices.length}
-            deliveredCount={deliveredInvoices.length}
+        
           >
             {/* Contenuto per pending/delivered viene passato come children */}
             {activeTab === 'pending' && (
