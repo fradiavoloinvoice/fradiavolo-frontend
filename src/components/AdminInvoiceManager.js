@@ -1,23 +1,11 @@
 // /components/AdminInvoiceManager.js
 import React, { useState, useEffect } from 'react';
 import {
-  FileText, Calendar, MapPin, Package,
-  CheckCircle, Clock, Search, Filter, Download,
-  Eye, X, FileCheck
+  FileText, Calendar, MapPin, Package, CheckCircle,
+  Clock, Search, Filter, Download, Eye, X, FileCheck
 } from 'lucide-react';
 
-/**
- * Costruisce la base dell'API evitando il doppio /api
- * - se REACT_APP_API_URL termina già con /api → usa quello
- * - altrimenti aggiunge /api
- * - fallback locale: http://localhost:3001/api
- */
-const buildApiBase = () => {
-  const raw = (process.env.REACT_APP_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
-  if (/\/api$/i.test(raw)) return raw;     // es. https://backend.tld/api
-  return `${raw}/api`;                      // es. http://localhost:3001/api
-};
-const API_BASE = buildApiBase();
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
 const AdminInvoiceManager = () => {
   const [invoices, setInvoices] = useState([]);
@@ -31,31 +19,25 @@ const AdminInvoiceManager = () => {
     loadInvoices();
   }, []);
 
-  // Carica e NORMALIZZA i dati provenienti dall'API admin
+  // Carica e normalizza dati dall’API admin
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token') || '';
-      const auth = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-
-      const url = `${API_BASE}/admin/invoices`;
-      // (utile in debug) console.log('▶︎ GET', url);
-      const res = await fetch(url, { headers: { Authorization: auth } });
-
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${API_URL}/api/admin/invoices`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error('Errore nel caricamento fatture');
 
-      // L’API risponde { success, data: [...] }
       const payload = await res.json();
       const rows = Array.isArray(payload) ? payload : payload.data || [];
 
-      // Normalizzazione campi (snake_case -> camelCase) e mapping DDT (colonna N)
       const normalized = rows.map(r => ({
         id: r.id ?? r.ID ?? r.row_id,
         numeroFattura: r.numero ?? r.numero_fattura ?? '',
         fornitore: r.fornitore ?? '',
         dataConsegna: r.data_consegna || r.data_emissione || '',
         puntoVendita: r.punto_vendita ?? r.store ?? '',
-        totale: r.importo_totale ?? r.totale ?? 0,
         consegnato: r.stato === 'consegnato' || r.consegnato === true,
         testoDDT: r.testo_ddt ?? r.ddt_text ?? ''
       }));
@@ -69,7 +51,6 @@ const AdminInvoiceManager = () => {
     }
   };
 
-  // Apertura modale DDT
   const handleViewDDT = (invoice) => {
     setSelectedDDT({
       numeroFattura: invoice.numeroFattura,
@@ -97,12 +78,10 @@ const AdminInvoiceManager = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Statistiche
   const stats = {
     total: invoices.length,
     confirmed: invoices.filter(i => i.consegnato).length,
     pending: invoices.filter(i => !i.consegnato).length,
-    totalAmount: invoices.reduce((s, i) => s + (parseFloat(i.totale) || 0), 0)
   };
 
   // Export CSV
@@ -114,7 +93,6 @@ const AdminInvoiceManager = () => {
       'Data Consegna': inv.dataConsegna,
       'Fornitore': inv.fornitore,
       'Punto Vendita': inv.puntoVendita,
-      'Totale': inv.totale,
       'Stato': inv.consegnato ? 'Consegnato' : 'In Attesa',
       'DDT': inv.testoDDT || 'N/A'
     }));
@@ -209,7 +187,6 @@ const AdminInvoiceManager = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Data consegna</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fornitore</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Punto vendita</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Totale</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stato</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">DDT</th>
               </tr>
@@ -218,7 +195,7 @@ const AdminInvoiceManager = () => {
             <tbody className="bg-white divide-y divide-gray-100">
               {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td className="px-6 py-8 text-center text-sm text-gray-500" colSpan={7}>
+                  <td className="px-6 py-8 text-center text-sm text-gray-500" colSpan={6}>
                     Nessun risultato
                   </td>
                 </tr>
@@ -242,28 +219,19 @@ const AdminInvoiceManager = () => {
                     </td>
 
                     {/* Fornitore */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-fradiavolo-charcoal">
-                        {invoice.fornitore}
-                      </div>
+                    <td className="px-6 py-4 text-sm text-fradiavolo-charcoal">
+                      {invoice.fornitore}
                     </td>
 
                     {/* Punto vendita */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center text-sm text-fradiavolo-charcoal">
+                    <td className="px-6 py-4 text-sm text-fradiavolo-charcoal">
+                      <div className="flex items-center">
                         <MapPin className="h-4 w-4 mr-2 text-fradiavolo-charcoal-light" />
                         {invoice.puntoVendita}
                       </div>
                     </td>
 
-                    {/* Totale */}
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-semibold text-fradiavolo-charcoal">
-                        €{parseFloat(invoice.totale || 0).toFixed(2)}
-                      </span>
-                    </td>
-
-                    {/* STATO → “pill” */}
+                    {/* STATO */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       {invoice.consegnato ? (
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
@@ -333,12 +301,9 @@ const StatCard = ({ title, value, icon: Icon, color }) => {
 // MODAL DDT
 const DDTModal = ({ ddt, onClose }) => (
   <>
-    {/* Backdrop */}
     <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
-    {/* Modal */}
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-        {/* Header */}
         <div className="bg-fradiavolo-red text-white p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <FileCheck className="h-6 w-6" />
@@ -354,9 +319,7 @@ const DDTModal = ({ ddt, onClose }) => (
           </button>
         </div>
 
-        {/* Body */}
         <div className="p-6 overflow-y-auto max-h-[60vh]">
-          {/* Info Card */}
           <div className="bg-fradiavolo-cream rounded-xl p-4 mb-4 space-y-2">
             <div className="flex items-center gap-2 text-sm">
               <MapPin className="h-4 w-4 text-fradiavolo-charcoal-light" />
@@ -375,7 +338,6 @@ const DDTModal = ({ ddt, onClose }) => (
             </div>
           </div>
 
-          {/* DDT Text */}
           <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
             <h4 className="text-sm font-bold text-fradiavolo-charcoal uppercase tracking-wide mb-3 flex items-center gap-2">
               <FileText className="h-4 w-4" />
@@ -387,7 +349,6 @@ const DDTModal = ({ ddt, onClose }) => (
           </div>
         </div>
 
-        {/* Footer */}
         <div className="bg-fradiavolo-cream p-4 flex justify-end">
           <button
             onClick={onClose}
