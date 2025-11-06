@@ -1,12 +1,23 @@
 // /components/AdminInvoiceManager.js
 import React, { useState, useEffect } from 'react';
 import {
-  FileText, Calendar, MapPin, Package, DollarSign,
+  FileText, Calendar, MapPin, Package,
   CheckCircle, Clock, Search, Filter, Download,
   Eye, X, FileCheck
 } from 'lucide-react';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+/**
+ * Costruisce la base dell'API evitando il doppio /api
+ * - se REACT_APP_API_URL termina già con /api → usa quello
+ * - altrimenti aggiunge /api
+ * - fallback locale: http://localhost:3001/api
+ */
+const buildApiBase = () => {
+  const raw = (process.env.REACT_APP_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
+  if (/\/api$/i.test(raw)) return raw;     // es. https://backend.tld/api
+  return `${raw}/api`;                      // es. http://localhost:3001/api
+};
+const API_BASE = buildApiBase();
 
 const AdminInvoiceManager = () => {
   const [invoices, setInvoices] = useState([]);
@@ -24,17 +35,20 @@ const AdminInvoiceManager = () => {
   const loadInvoices = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/admin/invoices`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const token = localStorage.getItem('token') || '';
+      const auth = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+
+      const url = `${API_BASE}/admin/invoices`;
+      // (utile in debug) console.log('▶︎ GET', url);
+      const res = await fetch(url, { headers: { Authorization: auth } });
+
       if (!res.ok) throw new Error('Errore nel caricamento fatture');
 
       // L’API risponde { success, data: [...] }
       const payload = await res.json();
       const rows = Array.isArray(payload) ? payload : payload.data || [];
 
-      // Normalizzazione campi (snake_case -> camelCase) e mapping DDT
+      // Normalizzazione campi (snake_case -> camelCase) e mapping DDT (colonna N)
       const normalized = rows.map(r => ({
         id: r.id ?? r.ID ?? r.row_id,
         numeroFattura: r.numero ?? r.numero_fattura ?? '',
@@ -43,7 +57,6 @@ const AdminInvoiceManager = () => {
         puntoVendita: r.punto_vendita ?? r.store ?? '',
         totale: r.importo_totale ?? r.totale ?? 0,
         consegnato: r.stato === 'consegnato' || r.consegnato === true,
-        // Colonna N del Google Sheet esposta dal backend come testo_ddt
         testoDDT: r.testo_ddt ?? r.ddt_text ?? ''
       }));
 
@@ -250,7 +263,7 @@ const AdminInvoiceManager = () => {
                       </span>
                     </td>
 
-                    {/* STATO → “pill” come screenshot */}
+                    {/* STATO → “pill” */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       {invoice.consegnato ? (
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
@@ -303,7 +316,6 @@ const StatCard = ({ title, value, icon: Icon, color }) => {
     blue: 'bg-blue-50 text-blue-700 border-blue-200',
     green: 'bg-green-50 text-green-700 border-green-200',
     yellow: 'bg-yellow-50 text-yellow-700 border-yellow-200',
-    purple: 'bg-purple-50 text-purple-700 border-purple-200',
   };
   return (
     <div className={`rounded-xl border p-6 ${colorClasses[color]}`}>
@@ -319,76 +331,74 @@ const StatCard = ({ title, value, icon: Icon, color }) => {
 };
 
 // MODAL DDT
-const DDTModal = ({ ddt, onClose }) => {
-  return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
-      {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-          {/* Header */}
-          <div className="bg-fradiavolo-red text-white p-6 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <FileCheck className="h-6 w-6" />
-              <div>
-                <h3 className="text-xl font-bold">Documento di Trasporto</h3>
-                <p className="text-sm opacity-90 mt-1">
-                  Fattura: {ddt.numeroFattura}
-                </p>
-              </div>
+const DDTModal = ({ ddt, onClose }) => (
+  <>
+    {/* Backdrop */}
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
+    {/* Modal */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+        {/* Header */}
+        <div className="bg-fradiavolo-red text-white p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FileCheck className="h-6 w-6" />
+            <div>
+              <h3 className="text-xl font-bold">Documento di Trasporto</h3>
+              <p className="text-sm opacity-90 mt-1">
+                Fattura: {ddt.numeroFattura}
+              </p>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition">
-              <X className="h-5 w-5" />
-            </button>
           </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-lg transition">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
 
-          {/* Body */}
-          <div className="p-6 overflow-y-auto max-h-[60vh]">
-            {/* Info Card */}
-            <div className="bg-fradiavolo-cream rounded-xl p-4 mb-4 space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <MapPin className="h-4 w-4 text-fradiavolo-charcoal-light" />
-                <span className="font-medium text-fradiavolo-charcoal">Punto Vendita:</span>
-                <span className="text-fradiavolo-charcoal-light">{ddt.puntoVendita}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Package className="h-4 w-4 text-fradiavolo-charcoal-light" />
-                <span className="font-medium text-fradiavolo-charcoal">Fornitore:</span>
-                <span className="text-fradiavolo-charcoal-light">{ddt.fornitore}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-fradiavolo-charcoal-light" />
-                <span className="font-medium text-fradiavolo-charcoal">Data Consegna:</span>
-                <span className="text-fradiavolo-charcoal-light">{ddt.dataConsegna}</span>
-              </div>
+        {/* Body */}
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          {/* Info Card */}
+          <div className="bg-fradiavolo-cream rounded-xl p-4 mb-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <MapPin className="h-4 w-4 text-fradiavolo-charcoal-light" />
+              <span className="font-medium text-fradiavolo-charcoal">Punto Vendita:</span>
+              <span className="text-fradiavolo-charcoal-light">{ddt.puntoVendita}</span>
             </div>
-
-            {/* DDT Text */}
-            <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
-              <h4 className="text-sm font-bold text-fradiavolo-charcoal uppercase tracking-wide mb-3 flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Testo DDT
-              </h4>
-              <div className="text-fradiavolo-charcoal whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                {ddt.testoDDT}
-              </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Package className="h-4 w-4 text-fradiavolo-charcoal-light" />
+              <span className="font-medium text-fradiavolo-charcoal">Fornitore:</span>
+              <span className="text-fradiavolo-charcoal-light">{ddt.fornitore}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Calendar className="h-4 w-4 text-fradiavolo-charcoal-light" />
+              <span className="font-medium text-fradiavolo-charcoal">Data Consegna:</span>
+              <span className="text-fradiavolo-charcoal-light">{ddt.dataConsegna}</span>
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="bg-fradiavolo-cream p-4 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-6 py-2 bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal/90 transition font-medium"
-            >
-              Chiudi
-            </button>
+          {/* DDT Text */}
+          <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+            <h4 className="text-sm font-bold text-fradiavolo-charcoal uppercase tracking-wide mb-3 flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Testo DDT
+            </h4>
+            <div className="text-fradiavolo-charcoal whitespace-pre-wrap font-mono text-sm leading-relaxed">
+              {ddt.testoDDT}
+            </div>
           </div>
         </div>
+
+        {/* Footer */}
+        <div className="bg-fradiavolo-cream p-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal/90 transition font-medium"
+          >
+            Chiudi
+          </button>
+        </div>
       </div>
-    </>
-  );
-};
+    </div>
+  </>
+);
 
 export default AdminInvoiceManager;
