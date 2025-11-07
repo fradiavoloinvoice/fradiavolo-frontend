@@ -4,34 +4,42 @@ import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle } fr
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
-/** Estrae info punto vendita dal filename
- *  - MOV_YYYY-MM-DD-ORIG-DEST-ALL.txt  -> label: "ORIG → DEST", keys: ["ORIG","DEST"]
- *  - NUMERO_DATA_FORNITORE_CODICEPV(.+).txt -> label: "CODICEPV", keys: ["CODICEPV"]
+/** 
+ * Estrae il codice magazzino dal filename
+ * Regola: codice magazzino è il numero PRIMA dell'estensione .txt
+ * Esempi:
+ * - "file_132.txt" → "132"
+ * - "MOV_2025-11-06_117.txt" → "117"
+ * - "FAT_12345_2025-11-06_FORNITORE_999.txt" → "999"
  */
-function extractStoreInfo(filename) {
+function extractWarehouseCode(filename) {
   try {
-    const base = filename.replace(/\.txt$/i, '');
-    // rimuovi eventuale suffisso _ERRORI
-    const noErr = base.endsWith('_ERRORI') ? base.slice(0, -'_ERRORI'.length) : base;
-
-    if (noErr.startsWith('MOV_')) {
-      const after = noErr.slice(4);
-      // Esempio: 2025-11-06-MIISO-RMTRA-ALL
-      const parts = after.split('-');
-      const origin = parts[1] || '';
-      const dest = parts[2] || '';
-      const label = (origin && dest) ? `${origin} → ${dest}` : (origin || dest || '-');
-      const keys = [origin, dest].filter(Boolean);
-      return { type: 'mov', label, keys };
+    // Rimuovi estensione .txt (case insensitive)
+    const withoutExt = filename.replace(/\.txt$/i, '');
+    
+    // Rimuovi suffisso _ERRORI se presente
+    const cleaned = withoutExt.endsWith('_ERRORI') 
+      ? withoutExt.slice(0, -'_ERRORI'.length) 
+      : withoutExt;
+    
+    // Cerca l'ultimo numero nel nome del file (dopo l'ultimo underscore)
+    const match = cleaned.match(/_(\d+)$/);
+    
+    if (match && match[1]) {
+      return match[1];
     }
-
-    // formato fattura: ..._<CODICEPV>
-    const m = noErr.match(/_(.+)$/);
-    if (m && m[1]) {
-      return { type: 'inv', label: m[1], keys: [m[1]] };
+    
+    // Fallback: cerca qualsiasi numero alla fine
+    const fallbackMatch = cleaned.match(/(\d+)$/);
+    if (fallbackMatch && fallbackMatch[1]) {
+      return fallbackMatch[1];
     }
-  } catch (_) {}
-  return { type: 'unknown', label: '-', keys: [] };
+    
+    return '-';
+  } catch (error) {
+    console.error('Errore estrazione codice magazzino:', error);
+    return '-';
+  }
 }
 
 const TxtFilesManager = () => {
@@ -51,7 +59,7 @@ const TxtFilesManager = () => {
 
   // Filtri
   const [searchTerm, setSearchTerm] = useState('');
-  const [storeFilter, setStoreFilter] = useState('ALL');
+  const [warehouseFilter, setWarehouseFilter] = useState('ALL');
 
   const authHeader = () => {
     const token = localStorage.getItem('token') || '';
@@ -69,10 +77,15 @@ const TxtFilesManager = () => {
       const data = await res.json();
 
       const list = (Array.isArray(data.files) ? data.files : []).map(f => {
-        const storeInfo = extractStoreInfo(f.name);
-        const flaggedError = /_ERRORI\.txt$/i.test(f.name); // evidenziazione lista
-        return { ...f, storeInfo, flaggedError };
+        const warehouseCode = extractWarehouseCode(f.name);
+        const flaggedError = /_ERRORI\.txt$/i.test(f.name);
+        return { 
+          ...f, 
+          warehouseCode, 
+          flaggedError 
+        };
       });
+      
       setTxtFiles(list);
     } catch (e) {
       console.error('Errore caricamento TXT:', e);
@@ -102,12 +115,12 @@ const TxtFilesManager = () => {
       const data = await res.json();
       setFileContent(data.content || '');
       setOriginalFileContent(data.content || '');
-      // hasErrors anche se deriva da item_noconv
+      
       const convErr = !!(data?.errorDetails?.item_noconv || data?.errorDetails?.errore_conversione);
       setHasErrorsFlag(!!data.hasErrors || convErr);
       setErrorDetails(data.errorDetails || null);
 
-      // se il server ha rinominato in _ERRORI, aggiorno UI (selectedFile + lista)
+      // Se il server ha rinominato in _ERRORI, aggiorna UI
       if (data.renamedTo && data.renamedTo !== filename) {
         setSelectedFile(data.renamedTo);
         setTxtFiles(prev =>
@@ -124,7 +137,6 @@ const TxtFilesManager = () => {
     }
   };
 
-  // Scarica -> elimina -> aggiorna UI
   const downloadTxtFile = async (filename, { closePreviewAfter = false } = {}) => {
     try {
       setError('');
@@ -185,26 +197,33 @@ const TxtFilesManager = () => {
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  // Opzioni filtro punto vendita
-  const storeOptions = useMemo(() => {
+  // Opzioni filtro codice magazzino
+  const warehouseOptions = useMemo(() => {
     const set = new Set();
     txtFiles.forEach(f => {
-      const label = f.storeInfo?.label || '-';
-      if (label && label !== '-') set.add(label);
+      const code = f.warehouseCode;
+      if (code && code !== '-') {
+        set.add(code);
+      }
     });
-    return ['ALL', ...Array.from(set).sort((a,b)=>a.localeCompare(b,'it',{sensitivity:'base'}))];
+    // Ordina numericamente
+    const sorted = Array.from(set).sort((a, b) => {
+      const numA = parseInt(a, 10);
+      const numB = parseInt(b, 10);
+      return numA - numB;
+    });
+    return ['ALL', ...sorted];
   }, [txtFiles]);
 
-  // Applica filtri (search + store)
+  // Applica filtri (search + warehouse)
   const filteredFiles = useMemo(() => {
     const q = (searchTerm || '').trim().toLowerCase();
     return txtFiles.filter(f => {
       const nameOk = !q || f.name.toLowerCase().includes(q);
-      const storeLabel = f.storeInfo?.label || '-';
-      const storeOk = storeFilter === 'ALL' || storeLabel === storeFilter;
-      return nameOk && storeOk;
+      const warehouseOk = warehouseFilter === 'ALL' || f.warehouseCode === warehouseFilter;
+      return nameOk && warehouseOk;
     });
-  }, [txtFiles, searchTerm, storeFilter]);
+  }, [txtFiles, searchTerm, warehouseFilter]);
 
   return (
     <div className="space-y-6">
@@ -234,24 +253,26 @@ const TxtFilesManager = () => {
               type="text"
               value={searchTerm}
               onChange={(e)=>setSearchTerm(e.target.value)}
-              placeholder="Es: MOV_2025-11-06, ..._117.txt"
+              placeholder="Es: MOV_2025-11-06, 132.txt"
               className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
             />
             <Search className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
           </div>
         </div>
 
-        {/* Store filter */}
+        {/* Warehouse filter */}
         <div className="w-full md:w-64">
-          <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Filtra per punto vendita</label>
+          <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Filtra per codice magazzino</label>
           <div className="relative">
             <select
-              value={storeFilter}
-              onChange={(e)=>setStoreFilter(e.target.value)}
+              value={warehouseFilter}
+              onChange={(e)=>setWarehouseFilter(e.target.value)}
               className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl bg-white focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
             >
-              {storeOptions.map(opt => (
-                <option key={opt} value={opt}>{opt === 'ALL' ? 'Tutti i punti vendita' : opt}</option>
+              {warehouseOptions.map(opt => (
+                <option key={opt} value={opt}>
+                  {opt === 'ALL' ? 'Tutti i magazzini' : `Magazzino ${opt}`}
+                </option>
               ))}
             </select>
             <Filter className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
@@ -279,7 +300,7 @@ const TxtFilesManager = () => {
             <thead className="bg-fradiavolo-cream">
               <tr className="text-left text-fradiavolo-charcoal">
                 <th className="px-4 py-3">Nome file</th>
-                <th className="px-4 py-3">Punto vendita</th>
+                <th className="px-4 py-3">Codice Magazzino PV</th>
                 <th className="px-4 py-3">Dimensione</th>
                 <th className="px-4 py-3">Creato</th>
                 <th className="px-4 py-3">Modificato</th>
@@ -301,7 +322,7 @@ const TxtFilesManager = () => {
                 </tr>
               ) : (
                 filteredFiles.map((f) => {
-                  const dangerRow = f.flaggedError; // filename con _ERRORI
+                  const dangerRow = f.flaggedError;
                   return (
                     <tr
                       key={f.name}
@@ -324,13 +345,13 @@ const TxtFilesManager = () => {
                       <td className="px-4 py-3">
                         <span
                           className={
-                            "inline-flex items-center rounded-lg px-2 py-1 text-xs border " +
+                            "inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold border " +
                             (dangerRow
                               ? "bg-red-100 text-red-800 border-red-200"
                               : "bg-fradiavolo-cream text-fradiavolo-charcoal border-fradiavolo-cream-dark")
                           }
                         >
-                          {f.storeInfo?.label || '-'}
+                          {f.warehouseCode !== '-' ? f.warehouseCode : 'N/A'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-fradiavolo-charcoal-light">{humanSize(f.size)}</td>
