@@ -8,7 +8,7 @@ import negoziData from './data/negozi.json';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 // =======================
-// Helpers formattazione TXT
+// Helpers formattazione TXT/PDF
 // =======================
 const format15 = (v) => {
   const n = Number(v);
@@ -16,8 +16,73 @@ const format15 = (v) => {
   return n.toFixed(15);
 };
 
-const toBaseUnit = (qty, uom) => {
+const toBaseUnit = (qty /*, uom*/ ) => {
   return Number(qty || 0);
+};
+
+const safeToken = () => {
+  const token = localStorage.getItem('token') || '';
+  return token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+};
+
+const norm = (s) => (s ?? '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
+
+// Piccolo helper per rigenerare un PDF "basico" dallo storico se il backend non fornisce un file
+const generateDDTFromEntry = (entry, opts = { action: 'view' }) => {
+  const doc = new jsPDF();
+  const dataFormattata = entry?.data || new Date().toLocaleDateString('it-IT');
+
+  // Header
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(211, 47, 47);
+  doc.text('DOCUMENTO DI TRASPORTO', 105, 18, { align: 'center' });
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  if (entry?.ddtNumber) doc.text(`N. DDT: ${entry.ddtNumber}`, 20, 28);
+  doc.text(`Data: ${dataFormattata}`, 20, 34);
+
+  doc.setDrawColor(211, 47, 47);
+  doc.line(20, 38, 190, 38);
+
+  const yStart = 46;
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(211, 47, 47);
+  doc.text('DESTINATARIO', 20, yStart);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  const dest = `${entry?.codiceDestinazione ? entry.codiceDestinazione + ' - ' : ''}${entry?.destinazione || '-'}`;
+  doc.text(dest, 20, yStart + 6);
+
+  const prodotti = (entry?.prodotti || '').toString();
+  const items = prodotti
+    ? prodotti.split(/\n|\r|\,|;|\|/).map((x) => x.trim()).filter(Boolean)
+    : [];
+
+  const tableData = items.length
+    ? items.map((p, i) => [String(i + 1), p])
+    : [["", "(dettaglio prodotti non disponibile)"]];
+
+  autoTable(doc, {
+    head: [['#', 'Prodotto / Qta / UM']],
+    body: tableData,
+    startY: yStart + 14,
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [211, 47, 47], textColor: [255, 255, 255], fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 12, halign: 'center' }, 1: { cellWidth: 170 } },
+    margin: { left: 20, right: 20 },
+  });
+
+  const fileName = `DDT_${(entry?.ddtNumber || 'storico').replace('/', '-')}.pdf`;
+
+  if (opts.action === 'download') {
+    doc.save(fileName);
+  } else {
+    const blobUrl = doc.output('bloburl');
+    window.open(blobUrl, '_blank');
+  }
 };
 
 const Movimentazione = ({ user }) => {
@@ -64,17 +129,15 @@ const Movimentazione = ({ user }) => {
       if (!res.ok) throw new Error(`Errore ${res.status}`);
       const json = await res.json();
 
+      // ✅ MAPPING AGGIORNATO: ogni movimentazione è già una riga unica
       const items = (json?.data || []).map(m => ({
         id: m.id,
         data: m.data_movimento,
         timestamp: m.timestamp,
-        movimenti: [{
-          prodotto: m.prodotto,
-          uom: m.unita_misura,
-          quantita: m.quantita,
-          verso: m.destinazione,
-          codiceDestinazione: m.codice_destinazione
-        }]
+        prodotti: m.prodotti, // ✅ Descrizione completa
+        destinazione: m.destinazione,
+        codiceDestinazione: m.codice_destinazione,
+        ddtNumber: m.ddt_number
       }));
 
       setStorico(items);
@@ -104,7 +167,6 @@ const Movimentazione = ({ user }) => {
       if (!res.ok) throw new Error(`Errore ${res.status}`);
       const data = await res.json();
 
-      const norm = s => (s ?? '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
       const options = (data?.data || []).map(p => {
         const nome = norm(p.nome);
         const uom = norm(p.unitaMisura);
@@ -126,6 +188,7 @@ const Movimentazione = ({ user }) => {
     } catch (e) {
       console.error('Errore prodotti:', e);
       setError('Errore nel caricamento dei prodotti: ' + e.message);
+      // Fallback di emergenza
       setProdottiOptions([
         { value: 'Pizza Margherita', label: 'Pizza Margherita (PZ)', uom: 'PZ', codice: 'PIZZA001' },
         { value: 'Pizza Marinara', label: 'Pizza Marinara (PZ)', uom: 'PZ', codice: 'PIZZA002' }
@@ -158,8 +221,8 @@ const Movimentazione = ({ user }) => {
 
   // ✅ AGGIUNGI RIGA (senza destinazione)
   const aggiungiRiga = () => {
-    setMovimenti([
-      ...movimenti,
+    setMovimenti([...
+      movimenti,
       { prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false }
     ]);
   };
@@ -191,6 +254,35 @@ const Movimentazione = ({ user }) => {
     setMovimenti(nuovo);
   };
 
+  // ====== VIEW / DOWNLOAD DDT DALLO STORICO ======
+  const fetchAndOpenDDT = async (entry, mode = 'view') => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/movimentazioni/${entry.id}/ddt`, {
+        headers: { Authorization: safeToken() }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (mode === 'download') {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `DDT_${(entry?.ddtNumber || entry.id)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } else {
+        window.open(url, '_blank');
+      }
+    } catch (err) {
+      console.warn('Nessun PDF dal backend, rigenero localmente...', err);
+      generateDDTFromEntry(entry, { action: mode === 'download' ? 'download' : 'view' });
+    }
+  };
+
+  const handleViewDDT = (entry) => fetchAndOpenDDT(entry, 'view');
+  const handleDownloadDDT = (entry) => fetchAndOpenDDT(entry, 'download');
+
   // ✅ GENERA PDF E SALVA (con destinazione unica)
   const generaPDF = async () => {
     try {
@@ -219,13 +311,13 @@ const Movimentazione = ({ user }) => {
 
       // ✅ Genera PDF con tutte le righe
       const doc = new jsPDF();
-      
+
       // Header
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
       doc.text('FRADIAVOLO PIZZERIA', 20, 20);
-      
+
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(211, 47, 47);
@@ -234,8 +326,8 @@ const Movimentazione = ({ user }) => {
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
-      doc.text('DOCUMENTO DI TRASPORTO', 105, 20);
-      
+      doc.text('DOCUMENTO DI TRASPORTO', 105, 20, { align: 'center' });
+
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
@@ -253,7 +345,7 @@ const Movimentazione = ({ user }) => {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
       doc.text('MITTENTE', 20, yPos);
-      
+
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
       doc.text(`${puntoOrigineObj?.nome || puntoOrigine} (${codiceOrigine})`, 20, yPos + 6);
@@ -264,19 +356,21 @@ const Movimentazione = ({ user }) => {
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
       doc.text('DESTINATARIO', 75, yPos);
-      
+
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
       if (destObj) {
         doc.text(`${destObj.nome} (${destObj.codice})`, 75, yPos + 6);
         doc.text(destObj.indirizzo || '', 75, yPos + 12);
+      } else {
+        doc.text(destinazioneUnica, 75, yPos + 6);
       }
 
       // Causale
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
       doc.text('CAUSALE TRASPORTO', 130, yPos);
-      
+
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
       doc.text('Trasferimento merce tra punti vendita', 130, yPos + 6);
@@ -293,9 +387,7 @@ const Movimentazione = ({ user }) => {
       ]);
 
       const targetRows = Math.max(10, tableData.length + 5);
-      while (tableData.length < targetRows) {
-        tableData.push(['', '', '', '', '']);
-      }
+      while (tableData.length < targetRows) tableData.push(['', '', '', '', '']);
 
       const pageWidth = doc.internal.pageSize.width;
       const tableWidth = 170;
@@ -334,7 +426,7 @@ const Movimentazione = ({ user }) => {
       doc.setFontSize(9);
       doc.setTextColor(211, 47, 47);
       doc.text('Note e Osservazioni:', 20, finalY);
-      
+
       doc.setDrawColor(150, 150, 150);
       doc.setLineWidth(0.5);
       doc.rect(20, finalY + 2, 170, 15);
@@ -343,11 +435,11 @@ const Movimentazione = ({ user }) => {
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 100);
-      
+
       doc.text('FIRMA MITTENTE', 35, signY);
       doc.text('FIRMA TRASPORTATORE', 90, signY);
       doc.text('FIRMA DESTINATARIO', 150, signY);
-      
+
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.5);
       doc.line(20, signY + 12, 65, signY + 12);
@@ -417,8 +509,6 @@ const Movimentazione = ({ user }) => {
       setTimeout(() => { setSuccess(''); setError(''); }, 8000);
     }
   };
-
-  // ... (resto delle funzioni regenerateDDT, handleViewDDT, handleDownloadDDT rimangono invariate)
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -580,7 +670,8 @@ const Movimentazione = ({ user }) => {
                           <div className="flex space-x-2">
                             <button
                               onClick={() => {
-                                const newContent = document.getElementById(`txt-editor-${index}`).value;
+                                const el = document.getElementById(`txt-editor-${index}`);
+                                const newContent = el ? el.value : mov.txtContent;
                                 saveTxtContent(index, newContent);
                               }}
                               className="flex items-center space-x-1 px-3 py-2 bg-fradiavolo-green text-white rounded-lg hover:bg-fradiavolo-green-dark text-sm"
@@ -649,8 +740,63 @@ const Movimentazione = ({ user }) => {
         </div>
       </div>
 
-      {/* Storico (rimane invariato) */}
-      {/* ... */}
+      {/* Storico */}
+      {storico.length > 0 && (
+        <div className="bg-white rounded-xl shadow-fradiavolo p-4 sm:p-6 border border-fradiavolo-cream-dark">
+          <h2 className="text-lg sm:text-xl font-semibold text-fradiavolo-charcoal mb-4">
+            📜 Storico movimentazioni ({storico.length})
+          </h2>
+
+          <div className="space-y-3 sm:space-y-4">
+            {storico.map(entry => (
+              <div key={entry.id} className="bg-fradiavolo-cream p-3 sm:p-4 rounded-lg border border-fradiavolo-cream-dark">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <p className="text-sm font-semibold text-fradiavolo-charcoal">
+                      📅 {entry.data}
+                    </p>
+                    {entry.ddtNumber && (
+                      <p className="text-xs text-fradiavolo-charcoal-light">
+                        DDT: {entry.ddtNumber}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleViewDDT(entry)}
+                      className="flex items-center space-x-1 px-3 py-2 text-xs bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red-dark"
+                    >
+                      <Eye className="h-3 w-3" />
+                      <span>Visualizza</span>
+                    </button>
+                    <button
+                      onClick={() => handleDownloadDDT(entry)}
+                      className="flex items-center space-x-1 px-3 py-2 text-xs bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light"
+                    >
+                      <Download className="h-3 w-3" />
+                      <span>Scarica</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* ✅ VISUALIZZAZIONE UNIFICATA */}
+                <div className="text-sm mt-2">
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="font-medium text-fradiavolo-charcoal">📦 Prodotti:</span>
+                    <span className="text-fradiavolo-charcoal-light">{entry.prodotti}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium text-fradiavolo-charcoal">🏪 Destinazione:</span>
+                    <span className="text-fradiavolo-red font-medium">
+                      {entry.codiceDestinazione ? `${entry.codiceDestinazione} - ` : ''}{entry.destinazione}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
