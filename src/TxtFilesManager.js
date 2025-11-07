@@ -271,7 +271,7 @@ const TxtFilesManager = () => {
             >
               {warehouseOptions.map(opt => (
                 <option key={opt} value={opt}>
-                  {opt === 'ALL' ? 'Tutti i magazzini' : `Magazzino ${opt}`}
+                  {opt === 'ALL' ? 'Tutti i magazzini' : opt}
                 </option>
               ))}
             </select>
