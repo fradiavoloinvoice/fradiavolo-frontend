@@ -230,11 +230,11 @@ const AdminDashboard = ({ user }) => {
         </div>
       )}
 
-      {/* Panoramica - Solo questa sezione rimane */}
+      {/* Panoramica */}
       <div className="space-y-6">
-        {/* KPI Cards */}
+        {/* KPI Cards - ORA SOLO 3 CARD */}
         {dashboardStats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Fatture Totali */}
             <div className="bg-white rounded-xl p-6 border border-fradiavolo-cream-dark shadow-fradiavolo">
               <div className="flex items-center justify-between mb-4">
@@ -304,39 +304,8 @@ const AdminDashboard = ({ user }) => {
                 Con attività recente
               </div>
             </div>
-
-            {/* Utenti Sistema */}
-            <div className="bg-white rounded-xl p-6 border border-fradiavolo-cream-dark shadow-fradiavolo">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-fradiavolo-charcoal/10 rounded-xl">
-                  <Users className="h-6 w-6 text-fradiavolo-charcoal" />
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-fradiavolo-charcoal">
-                    {users.length}
-                  </p>
-                  <p className="text-sm text-fradiavolo-charcoal-light">Utenti Sistema</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-fradiavolo-charcoal-light">Admin:</span>
-                  <span className="font-medium text-fradiavolo-red">
-                    {users.filter(u => u.role === 'admin').length}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-fradiavolo-charcoal-light">Operatori:</span>
-                  <span className="font-medium text-fradiavolo-charcoal">
-                    {users.filter(u => u.role === 'operator').length}
-                  </span>
-                </div>
-              </div>
-            </div>
           </div>
         )}
-
-        
 
         {/* Recent Activity */}
         {dashboardStats && (
@@ -404,38 +373,40 @@ const AdminDashboard = ({ user }) => {
           </div>
         )}
 
-        {/* Store Performance */}
+        {/* Store Performance - CON SCROLL E TUTTI I NEGOZI */}
         {dashboardStats && Object.keys(dashboardStats.invoices.byStore).length > 0 && (
           <div className="bg-white rounded-xl p-6 border border-fradiavolo-cream-dark shadow-fradiavolo">
             <h3 className="text-lg font-semibold text-fradiavolo-charcoal mb-4 flex items-center space-x-2">
               <Store className="h-5 w-5" />
-              <span>Performance per Negozio</span>
+              <span>Performance per Negozio ({Object.keys(dashboardStats.invoices.byStore).length} negozi)</span>
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {Object.entries(dashboardStats.invoices.byStore)
-                .sort(([,a], [,b]) => b.total - a.total)
-                .slice(0, 6)
-                .map(([store, stats]) => (
-                  <div key={store} className="p-4 bg-fradiavolo-cream/30 rounded-lg">
-                    <h4 className="font-medium text-fradiavolo-charcoal mb-2 truncate">
-                      {store}
-                    </h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-fradiavolo-charcoal-light">Totali:</span>
-                        <span className="font-medium">{stats.total}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-fradiavolo-charcoal-light">Consegnate:</span>
-                        <span className="text-fradiavolo-green font-medium">{stats.consegnate}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-fradiavolo-charcoal-light">Pending:</span>
-                        <span className="text-fradiavolo-orange font-medium">{stats.pending}</span>
+            {/* CONTENITORE CON SCROLL */}
+            <div className="max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-fradiavolo-cream-dark scrollbar-track-fradiavolo-cream">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.entries(dashboardStats.invoices.byStore)
+                  .sort(([,a], [,b]) => b.total - a.total)
+                  .map(([store, stats]) => (
+                    <div key={store} className="p-4 bg-fradiavolo-cream/30 rounded-lg hover:bg-fradiavolo-cream/50 transition-colors">
+                      <h4 className="font-medium text-fradiavolo-charcoal mb-2 truncate">
+                        {store}
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-fradiavolo-charcoal-light">Totali:</span>
+                          <span className="font-medium">{stats.total}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-fradiavolo-charcoal-light">Consegnate:</span>
+                          <span className="text-fradiavolo-green font-medium">{stats.consegnate}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-fradiavolo-charcoal-light">Pending:</span>
+                          <span className="text-fradiavolo-orange font-medium">{stats.pending}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+              </div>
             </div>
           </div>
         )}
