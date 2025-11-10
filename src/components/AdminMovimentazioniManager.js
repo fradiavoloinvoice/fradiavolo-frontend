@@ -512,7 +512,6 @@ const AdminMovimentazioniManager = ({ user }) => {
                     { key: 'prodotti_count', label: 'Articoli' },
                     { key: 'origine', label: 'Origine' },
                     { key: 'destinazione', label: 'Destinazione' },
-                    { key: 'stato', label: 'Stato' },
                     { key: 'timestamp', label: 'Registrato' }
                   ].map(col => (
                     <th
@@ -580,11 +579,6 @@ const AdminMovimentazioniManager = ({ user }) => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={getStatusBadge(g.stato)}>
-                          <span className="flex items-center space-x-1">{getStatusIcon(g.stato)}<span className="capitalize">{g.stato}</span></span>
-                        </span>
-                      </td>
                       <td className="px-6 py-4 text-fradiavolo-charcoal-light">
                         <div className="flex items-center space-x-1">
                           <Clock className="h-3 w-3" />
@@ -620,7 +614,7 @@ const AdminMovimentazioniManager = ({ user }) => {
                     {expanded[g.id] && (
                       <tr className="bg-fradiavolo-cream/30">
                         <td></td>
-                        <td colSpan={8} className="px-6 pb-6">
+                        <td colSpan={7} className="px-6 pb-6">
                           <div className="mt-2 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {g.prodotti.map((p, idx) => (
                               <div key={p.id || idx} className="p-3 rounded-lg border border-fradiavolo-cream-dark bg-white">
