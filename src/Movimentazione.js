@@ -1,12 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { 
-  FileText, Edit3, Save, X, Download, Eye, EyeOff, 
-  ChevronDown, ChevronRight, Package, MapPin, Calendar,
-  Hash, CheckCircle, RefreshCw, Plus
-} from 'lucide-react';
+import { FileText, Edit3, Save, X, Download, Eye, EyeOff } from 'lucide-react';
 import negoziData from './data/negozi.json';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -20,24 +17,25 @@ const format15 = (v) => {
   return n.toFixed(15);
 };
 
-const toBaseUnit = (qty, uom) => {
+const toBaseUnit = (qty, uom /* , prodotto */) => {
+  // Qui puoi implementare conversioni UM -> UMB se serve
   return Number(qty || 0);
 };
 
+// NOTE: questo componente si aspetta una prop "user" con almeno { email, puntoVendita }
 const Movimentazione = ({ user }) => {
   const puntoOrigine = user?.puntoVendita || 'Non definito';
 
-  // Destinazione unica per movimentazione
-  const [destinazione, setDestinazione] = useState(null);
+  // NEW: destinazione unica per movimentazione
+  const [destinazione, setDestinazione] = useState(null); // { value, label, codice, nome }
 
-  // Stato righe da movimentare
+  // Stato righe da movimentare (per-prodotto)
   const [movimenti, setMovimenti] = useState([
     { prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false }
   ]);
 
   // Storico (raggruppato per DDT)
   const [storico, setStorico] = useState([]);
-  const [expandedDDTs, setExpandedDDTs] = useState(new Set());
 
   // Loading & messaggi
   const [isLoading, setIsLoading] = useState(false);
@@ -61,18 +59,7 @@ const Movimentazione = ({ user }) => {
       indirizzo: n.indirizzo || ''
     }));
 
-  // Toggle espansione DDT
-  const toggleDDT = (ddtId) => {
-    const newExpanded = new Set(expandedDDTs);
-    if (newExpanded.has(ddtId)) {
-      newExpanded.delete(ddtId);
-    } else {
-      newExpanded.add(ddtId);
-    }
-    setExpandedDDTs(newExpanded);
-  };
-
-  // ===== Carica STORICO =====
+  // ===== Carica STORICO (e raggruppa per DDT) =====
   const loadStorico = async () => {
     try {
       setIsLoading(true);
@@ -87,7 +74,7 @@ const Movimentazione = ({ user }) => {
       if (!res.ok) throw new Error(`Errore ${res.status}`);
       const json = await res.json();
 
-      // Raggruppa per DDT
+      // json.data = righe (una per prodotto). Raggruppo per ddt_number
       const byDDT = {};
       (json?.data || []).forEach(m => {
         const key = m.ddt_number || `DDT_${m.timestamp}`;
@@ -141,6 +128,7 @@ const Movimentazione = ({ user }) => {
       if (!res.ok) throw new Error(`Errore ${res.status}`);
       const data = await res.json();
 
+      // Mapping ricco per aiutare la ricerca
       const norm = s => (s ?? '').toString().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, ' ').trim();
       const options = (data?.data || []).map(p => {
         const nome = norm(p.nome);
@@ -163,6 +151,7 @@ const Movimentazione = ({ user }) => {
     } catch (e) {
       console.error('Errore prodotti:', e);
       setError('Errore nel caricamento dei prodotti: ' + e.message);
+      // Fallback minimo
       setProdottiOptions([
         { value: 'Pizza Margherita', label: 'Pizza Margherita (PZ)', uom: 'PZ', codice: 'PIZZA001' },
         { value: 'Pizza Marinara', label: 'Pizza Marinara (PZ)', uom: 'PZ', codice: 'PIZZA002' }
@@ -172,6 +161,7 @@ const Movimentazione = ({ user }) => {
     }
   };
 
+  // Avvio: carica storico + prodotti
   useEffect(() => {
     loadStorico();
     loadProdotti();
@@ -183,6 +173,7 @@ const Movimentazione = ({ user }) => {
     const nuovoMov = [...movimenti];
     nuovoMov[index][campo] = valore;
 
+    // ——— Genera la riga TXT per questa riga ———
     const r = nuovoMov[index];
     const prodotto = (campo === 'prodotto' ? valore : r.prodotto) || null;
     const codiceMago = prodotto?.codice || '';
@@ -200,14 +191,6 @@ const Movimentazione = ({ user }) => {
       ...movimenti,
       { prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false }
     ]);
-  };
-
-  const rimuoviRiga = (index) => {
-    if (movimenti.length === 1) {
-      setMovimenti([{ prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false }]);
-    } else {
-      setMovimenti(movimenti.filter((_, i) => i !== index));
-    }
   };
 
   const toggleTxtEditor = (index) => {
@@ -249,13 +232,15 @@ const Movimentazione = ({ user }) => {
         return;
       }
 
+      // Genera DDT con numerazione progressiva
       const timestamp = new Date();
       const ddtNumber = `${String(Date.now()).slice(-4)}/${timestamp.getFullYear()}`;
       const dataFormattata = timestamp.toLocaleDateString('it-IT');
 
+      // Crea PDF DDT
       const doc = new jsPDF();
 
-      // Header
+      // Header - Logo (senza emoji)
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
@@ -266,6 +251,7 @@ const Movimentazione = ({ user }) => {
       doc.setTextColor(211, 47, 47);
       doc.text('Pizza Contemporanea • Qualita Italiana', 20, 28);
 
+      // Info DDT - destra
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
@@ -277,13 +263,17 @@ const Movimentazione = ({ user }) => {
       doc.text(`N. DDT: ${ddtNumber}`, 105, 28);
       doc.text(`Data: ${dataFormattata}`, 105, 35);
 
+      // Linea
       doc.setDrawColor(211, 47, 47);
       doc.setLineWidth(0.5);
       doc.line(20, 42, 190, 42);
 
+      // Info trasporto
       const puntoOrigineObj = negoziData.find(n => n.nome === puntoOrigine);
+
       let yPos = 52;
 
+      // Mittente
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
@@ -294,6 +284,7 @@ const Movimentazione = ({ user }) => {
       doc.text(`${puntoOrigineObj?.nome || puntoOrigine} (${puntoOrigineObj?.codice || ''})`, 20, yPos + 6);
       doc.text(puntoOrigineObj?.indirizzo || '', 20, yPos + 12);
 
+      // Destinatario (unico)
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
       doc.text('DESTINATARIO', 75, yPos);
@@ -305,6 +296,7 @@ const Movimentazione = ({ user }) => {
         doc.text(destinazione.indirizzo || '', 75, yPos + 12);
       }
 
+      // Causale
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
       doc.text('CAUSALE TRASPORTO', 130, yPos);
@@ -314,6 +306,7 @@ const Movimentazione = ({ user }) => {
       doc.text('Trasferimento merce tra punti vendita', 130, yPos + 6);
       doc.text('Trasporto a cura del mittente', 130, yPos + 12);
 
+      // Tabella prodotti
       const tableStartY = yPos + 25;
       const tableData = movimenti
         .filter(m => m.prodotto && m.quantita)
@@ -325,6 +318,7 @@ const Movimentazione = ({ user }) => {
           `${destinazione.codice} - ${destinazione.nome}`
         ]));
 
+      // Righe vuote
       const targetRows = Math.max(10, tableData.length + 5);
       while (tableData.length < targetRows) {
         tableData.push(['', '', '', '', '']);
@@ -350,16 +344,19 @@ const Movimentazione = ({ user }) => {
         margin: { left: leftMargin, right: leftMargin },
       });
 
+      // Note
       const finalY = doc.lastAutoTable.finalY + 10;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
       doc.setTextColor(211, 47, 47);
       doc.text('Note e Osservazioni:', 20, finalY);
 
+      // Box note
       doc.setDrawColor(150, 150, 150);
       doc.setLineWidth(0.5);
       doc.rect(20, finalY + 2, 170, 15);
 
+      // Firme
       const signY = finalY + 25;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
@@ -375,13 +372,16 @@ const Movimentazione = ({ user }) => {
       doc.line(75, signY + 12, 120, signY + 12);
       doc.line(135, signY + 12, 180, signY + 12);
 
+      // Footer
       doc.setFontSize(7);
       doc.setTextColor(120, 120, 120);
       doc.text('Documento generato automaticamente dal sistema Fradiavolo Invoice Manager', 105, 280, { align: 'center' });
 
+      // Salva PDF
       const nomeFile = `DDT_${ddtNumber.replace('/', '-')}_${puntoOrigineObj?.codice || 'ORIG'}_${dataFormattata.replace(/\//g, '-')}.pdf`;
       doc.save(nomeFile);
 
+      // Payload verso backend: stessa destinazione per tutte le righe
       const payload = movimenti
         .filter(m => m.prodotto && m.quantita)
         .map((m) => {
@@ -422,11 +422,13 @@ const Movimentazione = ({ user }) => {
       let data;
       try { data = JSON.parse(text); } catch { throw new Error(`Risposta non JSON: ${text}`); }
 
+      // Salva file TXT unico
       await saveUnifiedTxtFile(payload);
 
       setSuccess(data?.message || `✅ DDT ${ddtNumber} generato e movimentazione salvata!`);
-      await loadStorico();
+      await loadStorico(); // aggiorna lista
 
+      // reset form
       setMovimenti([{ prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false }]);
       setDestinazione(null);
     } catch (err) {
@@ -438,6 +440,7 @@ const Movimentazione = ({ user }) => {
     }
   };
 
+  // Rigenera DDT da entry raggruppata
   const regenerateDDT = (entry) => {
     try {
       const timestamp = new Date(entry.timestamp);
@@ -446,6 +449,7 @@ const Movimentazione = ({ user }) => {
 
       const doc = new jsPDF();
 
+      // Header
       doc.setFontSize(18);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
@@ -456,6 +460,7 @@ const Movimentazione = ({ user }) => {
       doc.setTextColor(211, 47, 47);
       doc.text('Pizza Contemporanea • Qualita Italiana', 20, 28);
 
+      // Info DDT
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
@@ -467,15 +472,18 @@ const Movimentazione = ({ user }) => {
       doc.text(`N. DDT: ${ddtNumber}`, 105, 28);
       doc.text(`Data: ${dataFormattata}`, 105, 35);
 
+      // Linea
       doc.setDrawColor(211, 47, 47);
       doc.setLineWidth(0.5);
       doc.line(20, 42, 190, 42);
 
+      // Info trasporto
       const puntoOrigineObj = negoziData.find(n => n.nome === entry.origine);
       const destObj = negoziData.find(n => n.nome === entry.destinazione);
 
       let yPos = 52;
 
+      // Mittente
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
@@ -486,6 +494,7 @@ const Movimentazione = ({ user }) => {
       doc.text(`${puntoOrigineObj?.nome || entry.origine} (${puntoOrigineObj?.codice || ''})`, 20, yPos + 6);
       doc.text(puntoOrigineObj?.indirizzo || '', 20, yPos + 12);
 
+      // Destinatario (unico)
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
       doc.text('DESTINATARIO', 75, yPos);
@@ -499,6 +508,7 @@ const Movimentazione = ({ user }) => {
         doc.text(`${entry.destinazione}`, 75, yPos + 6);
       }
 
+      // Causale
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(211, 47, 47);
       doc.text('CAUSALE TRASPORTO', 130, yPos);
@@ -508,6 +518,7 @@ const Movimentazione = ({ user }) => {
       doc.text('Trasferimento merce tra punti vendita', 130, yPos + 6);
       doc.text('Trasporto a cura del mittente', 130, yPos + 12);
 
+      // Tabella prodotti
       const tableStartY = yPos + 25;
       const tableData = entry.movimenti.map((m, idx) => ([
         (idx + 1).toString(),
@@ -517,6 +528,7 @@ const Movimentazione = ({ user }) => {
         `${entry.codiceDestinazione ? entry.codiceDestinazione + ' - ' : ''}${entry.destinazione || ''}`
       ]));
 
+      // Righe vuote
       const targetRows = Math.max(10, tableData.length + 5);
       while (tableData.length < targetRows) {
         tableData.push(['', '', '', '', '']);
@@ -538,6 +550,7 @@ const Movimentazione = ({ user }) => {
         margin: { left: 30, right: 30 },
       });
 
+      // Note
       const finalY = doc.lastAutoTable.finalY + 10;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(9);
@@ -548,6 +561,7 @@ const Movimentazione = ({ user }) => {
       doc.setLineWidth(0.5);
       doc.rect(20, finalY + 2, 170, 15);
 
+      // Firme
       const signY = finalY + 25;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
@@ -563,6 +577,7 @@ const Movimentazione = ({ user }) => {
       doc.line(75, signY + 12, 120, signY + 12);
       doc.line(135, signY + 12, 180, signY + 12);
 
+      // Footer
       doc.setFontSize(7);
       doc.setTextColor(120, 120, 120);
       doc.text('Documento generato automaticamente dal sistema Fradiavolo Invoice Manager', 105, 280, { align: 'center' });
@@ -574,6 +589,7 @@ const Movimentazione = ({ user }) => {
     }
   };
 
+  // Handler per visualizzare DDT
   const handleViewDDT = (entry) => {
     const doc = regenerateDDT(entry);
     if (doc) {
@@ -586,6 +602,7 @@ const Movimentazione = ({ user }) => {
     }
   };
 
+  // Handler per scaricare DDT
   const handleDownloadDDT = (entry) => {
     const doc = regenerateDDT(entry);
     if (doc) {
@@ -601,212 +618,210 @@ const Movimentazione = ({ user }) => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="p-6 max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold text-fradiavolo-charcoal">Movimentazioni tra Negozi</h2>
+          <h1 className="text-2xl font-bold text-fradiavolo-charcoal mb-2">Movimentazione tra Negozi</h1>
           <p className="text-fradiavolo-charcoal-light">
             Origine: <span className="font-semibold text-fradiavolo-red">{codiceOrigine} - {puntoOrigine}</span>
           </p>
         </div>
 
-        <button
-          onClick={loadStorico}
-          disabled={isLoading}
-          className="inline-flex items-center space-x-2 px-3 py-2 text-fradiavolo-charcoal hover:text-fradiavolo-red transition-colors disabled:opacity-50 hover:bg-fradiavolo-cream rounded-lg"
-        >
-          <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          <span>Ricarica</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Ricarica prodotti */}
+          <button
+            onClick={loadProdotti}
+            disabled={isLoadingProdotti}
+            className="flex items-center space-x-2 px-3 py-1 text-fradiavolo-charcoal hover:text-fradiavolo-red transition-colors disabled:opacity-50 hover:bg-fradiavolo-cream rounded-lg"
+            title="Ricarica lista prodotti"
+          >
+            <svg className={`h-4 w-4 ${isLoadingProdotti ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="text-sm">Ricarica Prodotti</span>
+          </button>
+
+          {/* Ricarica storico */}
+          <button
+            onClick={loadStorico}
+            disabled={isLoading}
+            className="flex items-center space-x-2 px-4 py-2 text-fradiavolo-charcoal hover:text-fradiavolo-red transition-colors disabled:opacity-50 hover:bg-fradiavolo-cream rounded-lg"
+            title="Ricarica storico"
+          >
+            <svg className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span className="text-sm">Aggiorna</span>
+          </button>
+        </div>
       </div>
 
       {/* Alert */}
       {error && (
-        <div className="p-3 rounded-xl border bg-red-50 text-red-800 border-red-200">{error}</div>
+        <div className="mb-4 p-4 rounded-xl border bg-red-50 text-red-800 border-red-200">{error}</div>
       )}
       {success && (
-        <div className="p-3 rounded-xl border bg-fradiavolo-green/10 text-fradiavolo-green-dark border-fradiavolo-green/30">{success}</div>
+        <div className="mb-4 p-4 rounded-xl border bg-fradiavolo-green/10 text-fradiavolo-green-dark border-fradiavolo-green/30">{success}</div>
       )}
 
-      {/* Form Nuova Movimentazione */}
-      <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-6">
-        <h3 className="text-lg font-semibold text-fradiavolo-charcoal mb-4 pb-3 border-b border-fradiavolo-cream-dark">
+      {/* Form Movimentazioni */}
+      <div className="mobile-invoice-card bg-white shadow-fradiavolo border border-fradiavolo-cream-dark mb-4 sm:mb-8">
+        <h3 className="mobile-card-header text-fradiavolo-charcoal mb-3 sm:mb-4 pb-2 sm:pb-3 border-b border-fradiavolo-cream-dark">
           Nuova Movimentazione
         </h3>
 
-        {/* Destinazione unica */}
-        <div className="mb-6">
-          <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-2 uppercase tracking-wide">
-            Destinazione
-          </label>
+        {/* NEW: Destinazione unica */}
+        <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-fradiavolo-cream rounded-lg border border-fradiavolo-cream-dark">
+          <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Destinazione unica</label>
           <Select
             options={negoziOptions}
-            placeholder="Seleziona punto vendita di destinazione..."
+            placeholder="Seleziona destinazione..."
             value={destinazione}
             onChange={(val) => setDestinazione(val)}
-            className="text-sm"
+            className="text-sm mobile-select"
             isSearchable
             noOptionsMessage={() => "Nessun negozio trovato"}
             styles={{
-              control: (base) => ({
-                ...base,
-                minHeight: '44px',
-                borderColor: '#E5C5A0',
-                '&:hover': { borderColor: '#D32F2F' }
-              })
+              control: (base) => ({ ...base, minHeight: '44px', fontSize: '14px' }),
+              menu: (base) => ({ ...base, fontSize: '14px' })
             }}
           />
+          {destinazione && (
+            <p className="text-xs text-fradiavolo-charcoal-light mt-1 mobile-text-xs">
+              Selezionata: {destinazione.codice} - {destinazione.nome}
+            </p>
+          )}
         </div>
 
-        {/* Righe prodotti */}
-        <div className="space-y-4 mb-6">
-          {movimenti.map((mov, index) => (
-            <div key={index} className="border border-fradiavolo-cream-dark rounded-xl p-4 bg-fradiavolo-cream/30">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div>
-                  <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-2">
-                    <Package className="h-3 w-3 inline mr-1" />
-                    Prodotto
-                  </label>
-                  <Select
-                    options={prodottiOptions}
-                    placeholder={isLoadingProdotti ? "Caricando..." : "Cerca prodotto..."}
-                    value={mov.prodotto}
-                    onChange={(val) => aggiornaRiga(index, 'prodotto', val)}
-                    className="text-sm"
-                    isSearchable
-                    isLoading={isLoadingProdotti}
-                    isDisabled={isLoadingProdotti}
-                    noOptionsMessage={() => "Nessun prodotto trovato"}
-                    filterOption={(option, rawInput) => {
-                      const q = (rawInput || '').toLowerCase();
-                      const o = option.data || option;
-                      const haystack = [
-                        option.label, option.value,
-                        o?.nome, o?.brand, o?.pack, o?.materiale, o?.codice, o?.uom
-                      ].filter(Boolean).join(' ').toLowerCase();
-                      return haystack.includes(q);
-                    }}
-                    styles={{
-                      control: (base) => ({
-                        ...base,
-                        minHeight: '40px',
-                        borderColor: '#E5C5A0',
-                        '&:hover': { borderColor: '#D32F2F' }
-                      })
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-2">
-                    <Hash className="h-3 w-3 inline mr-1" />
-                    Quantità {mov.prodotto && `(${mov.prodotto.uom})`}
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      className="flex-1 border border-fradiavolo-cream-dark p-2.5 rounded-lg focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                      placeholder="Es: 24"
-                      value={mov.quantita}
-                      onChange={(e) => aggiornaRiga(index, 'quantita', e.target.value)}
-                    />
-                    {movimenti.length > 1 && (
-                      <button
-                        onClick={() => rimuoviRiga(index)}
-                        className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
-                        title="Rimuovi riga"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+        {movimenti.map((mov, index) => (
+          <div key={index} className="mb-4 sm:mb-6 p-3 sm:p-4 bg-fradiavolo-cream rounded-lg border border-fradiavolo-cream-dark mobile-list-item">
+            {/* Riga principale */}
+            <div className="grid grid-cols-1 gap-4 mb-4 movimento-grid">
+              <div>
+                <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Prodotto</label>
+                <Select
+                  options={prodottiOptions}
+                  placeholder={isLoadingProdotti ? "Caricando prodotti..." : "Seleziona prodotto..."}
+                  value={mov.prodotto}
+                  onChange={(val) => aggiornaRiga(index, 'prodotto', val)}
+                  className="text-sm mobile-select"
+                  isSearchable
+                  isLoading={isLoadingProdotti}
+                  isDisabled={isLoadingProdotti}
+                  noOptionsMessage={() => isLoadingProdotti ? "Caricamento in corso..." : "Nessun prodotto trovato"}
+                  filterOption={(option, rawInput) => {
+                    const q = (rawInput || '').toLowerCase();
+                    const o = option.data || option;
+                    const haystack = [
+                      option.label,
+                      option.value,
+                      o?.nome, o?.brand, o?.pack, o?.materiale, o?.codice, o?.uom
+                    ].filter(Boolean).join(' ').toLowerCase();
+                    return haystack.includes(q);
+                  }}
+                  styles={{
+                    control: (base) => ({ ...base, minHeight: '44px', fontSize: '14px' }),
+                    menu: (base) => ({ ...base, fontSize: '14px' })
+                  }}
+                />
               </div>
 
-              {/* Editor TXT */}
-              {mov.prodotto && (
-                <div className="border-t border-fradiavolo-cream-dark pt-3 mt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-xs font-semibold text-fradiavolo-charcoal flex items-center space-x-1">
-                      <FileText className="h-3 w-3" />
-                      <span>Contenuto TXT</span>
-                    </h4>
-                    <button
-                      onClick={() => toggleTxtEditor(index)}
-                      className="flex items-center space-x-1 px-2 py-1 text-xs bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light transition-colors"
-                    >
-                      {mov.showTxtEditor ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                      <span>{mov.showTxtEditor ? 'Nascondi' : 'Mostra'}</span>
-                    </button>
-                  </div>
+              <div>
+                <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Quantità</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  className="w-full border border-fradiavolo-cream-dark p-3 rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors mobile-input"
+                  placeholder="Es: 24"
+                  value={mov.quantita}
+                  onChange={(e) => aggiornaRiga(index, 'quantita', e.target.value)}
+                />
+                {mov.prodotto && (
+                  <p className="text-xs text-fradiavolo-charcoal-light mt-1 mobile-text-xs">Unità: {mov.prodotto.uom}</p>
+                )}
+              </div>
+            </div>
 
-                  {mov.showTxtEditor && (
-                    <div className="bg-white rounded-lg border border-fradiavolo-cream-dark p-3">
-                      {mov.isEditingTxt ? (
-                        <div className="space-y-2">
-                          <textarea
-                            defaultValue={mov.txtContent}
-                            id={`txt-editor-${index}`}
-                            rows="4"
-                            className="w-full border border-fradiavolo-cream-dark p-2 rounded-lg focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors font-mono text-xs"
-                            placeholder="Contenuto TXT..."
-                          />
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => {
-                                const newContent = document.getElementById(`txt-editor-${index}`).value;
-                                saveTxtContent(index, newContent);
-                              }}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-fradiavolo-green text-white rounded-lg hover:bg-fradiavolo-green-dark transition-colors text-xs"
-                            >
-                              <Save className="h-3 w-3" />
-                              <span>Salva</span>
-                            </button>
-                            <button
-                              onClick={() => cancelTxtEdit(index)}
-                              className="flex items-center space-x-1 px-3 py-1.5 bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light transition-colors text-xs"
-                            >
-                              <X className="h-3 w-3" />
-                              <span>Annulla</span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <div className="bg-fradiavolo-cream p-2 rounded border border-fradiavolo-cream-dark">
-                            <pre className="text-xs text-fradiavolo-charcoal font-mono whitespace-pre-wrap max-h-24 overflow-y-auto">
-                              {mov.txtContent || 'Nessun contenuto'}
-                            </pre>
-                          </div>
+            {/* Editor TXT */}
+            {mov.prodotto && (
+              <div className="border-t border-fradiavolo-cream-dark pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-fradiavolo-charcoal flex items-center space-x-2">
+                    <FileText className="h-4 w-4" />
+                    <span className="hidden sm:inline">Contenuto TXT per il movimento</span>
+                    <span className="sm:hidden">TXT movimento</span>
+                  </h4>
+                  <button
+                    onClick={() => toggleTxtEditor(index)}
+                    className="flex items-center space-x-1 px-2 sm:px-3 py-1 text-xs bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light transition-colors mobile-button-sm mobile-touch-feedback"
+                  >
+                    {mov.showTxtEditor ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    <span className="hidden sm:inline">{mov.showTxtEditor ? 'Nascondi' : 'Mostra'} Editor</span>
+                    <span className="sm:hidden">{mov.showTxtEditor ? 'Hide' : 'Show'}</span>
+                  </button>
+                </div>
+
+                {mov.showTxtEditor && (
+                  <div className="bg-white rounded-lg border border-fradiavolo-cream-dark p-3 sm:p-4">
+                    {mov.isEditingTxt ? (
+                      <div className="space-y-3">
+                        <textarea
+                          defaultValue={mov.txtContent}
+                          id={`txt-editor-${index}`}
+                          rows="6"
+                          className="w-full border border-fradiavolo-cream-dark p-3 rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors font-mono text-sm mobile-textarea"
+                          placeholder="Inserisci il contenuto del file TXT..."
+                        />
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                           <button
-                            onClick={() => startEditingTxt(index)}
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red-dark transition-colors text-xs"
+                            onClick={() => {
+                              const newContent = document.getElementById(`txt-editor-${index}`).value;
+                              saveTxtContent(index, newContent);
+                            }}
+                            className="flex items-center justify-center space-x-1 px-3 py-2 bg-fradiavolo-green text-white rounded-lg hover:bg-fradiavolo-green-dark transition-colors text-sm mobile-button mobile-touch-feedback"
                           >
-                            <Edit3 className="h-3 w-3" />
-                            <span>Modifica</span>
+                            <Save className="h-3 w-3" />
+                            <span>Salva TXT</span>
+                          </button>
+                          <button
+                            onClick={() => cancelTxtEdit(index)}
+                            className="flex items-center justify-center space-x-1 px-3 py-2 bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light transition-colors text-sm mobile-button mobile-touch-feedback"
+                          >
+                            <X className="h-3 w-3" />
+                            <span>Annulla</span>
                           </button>
                         </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="bg-fradiavolo-cream p-3 rounded-lg border border-fradiavolo-cream-dark">
+                          <pre className="text-xs text-fradiavolo-charcoal font-mono whitespace-pre-wrap max-h-24 sm:max-h-32 overflow-y-auto mobile-notes">
+                            {mov.txtContent || 'Nessun contenuto TXT generato'}
+                          </pre>
+                        </div>
+                        <button
+                          onClick={() => startEditingTxt(index)}
+                          className="flex items-center space-x-1 px-3 py-2 bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red-dark transition-colors text-sm mobile-button mobile-touch-feedback"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                          <span>Modifica TXT</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
 
-        {/* Bottoni azione */}
-        <div className="flex flex-wrap gap-3 pt-4 border-t border-fradiavolo-cream-dark">
+        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3 movimento-buttons p-3 sm:p-4">
           <button
             onClick={aggiungiRiga}
-            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light transition-colors font-medium"
+            className="flex items-center justify-center space-x-2 px-4 py-3 bg-fradiavolo-charcoal text-white rounded-xl hover:bg-fradiavolo-charcoal-light transition-all font-semibold shadow-lg mobile-button mobile-touch-feedback"
           >
-            <Plus className="h-4 w-4" />
-            <span>Aggiungi prodotto</span>
+            <span className="text-sm sm:text-base">+ Aggiungi riga</span>
           </button>
 
           <button
@@ -816,185 +831,101 @@ const Movimentazione = ({ user }) => {
               !destinazione ||
               movimenti.every(m => !m.prodotto || !m.quantita)
             }
-            className="inline-flex items-center space-x-2 px-4 py-2.5 bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red-dark transition-colors font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center space-x-2 px-4 py-3 bg-fradiavolo-red text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed mobile-generate-btn mobile-touch-feedback"
           >
             {isLoading ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                <span>Salvando...</span>
+                <span className="hidden sm:inline text-sm">Salvando...</span>
+                <span className="sm:hidden text-xs">Salvando...</span>
               </>
             ) : (
               <>
                 <Download className="h-4 w-4" />
-                <span>Genera DDT e Salva</span>
+                <span className="hidden sm:inline text-sm">Genera DDT, Scarica e Salva TXT</span>
+                <span className="sm:hidden text-xs mobile-ddt-btn">Genera DDT</span>
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Storico Movimentazioni */}
-      <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark overflow-hidden">
-        <div className="p-4 border-b border-fradiavolo-cream-dark flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-fradiavolo-charcoal">
-            Movimentazioni ({storico.length})
-          </h3>
-          <p className="text-sm text-fradiavolo-charcoal-light">
-            Solo da {codiceOrigine}
-          </p>
-        </div>
+      {/* Storico (raggruppato per DDT) */}
+      {storico.length > 0 && (
+        <div className="bg-white rounded-xl shadow-fradiavolo p-4 sm:p-6 border border-fradiavolo-cream-dark">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 space-y-2 sm:space-y-0">
+            <h2 className="text-lg sm:text-xl font-semibold text-fradiavolo-charcoal flex items-center space-x-2">
+              <span className="text-base sm:text-xl">📜</span>
+              <span>Storico movimentazioni ({storico.length})</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-fradiavolo-charcoal-light mobile-text-xs">
+              <span className="hidden sm:inline">Solo le movimentazioni originate da {codiceOrigine} - {puntoOrigine}</span>
+              <span className="sm:hidden">Da {codiceOrigine}</span>
+            </p>
+          </div>
 
-        {storico.length === 0 ? (
-          <div className="p-8 text-center text-fradiavolo-charcoal-light">
-            <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p>Nessuna movimentazione registrata</p>
+          <div className="space-y-3 sm:space-y-4">
+            {storico.map(entry => (
+              <div key={entry.id} className="bg-fradiavolo-cream p-3 sm:p-4 rounded-lg border border-fradiavolo-cream-dark mobile-history-card">
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 space-y-2 sm:space-y-0">
+                  <p className="text-sm font-semibold text-fradiavolo-charcoal">
+                    Registrata il: {entry.data} • DDT: <span className="text-fradiavolo-red">{entry.ddt_number}</span>
+                  </p>
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                    <button
+                      onClick={() => handleViewDDT(entry)}
+                      className="flex items-center justify-center space-x-1 px-3 py-2 text-xs bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red-dark transition-colors mobile-button-sm mobile-touch-feedback"
+                    >
+                      <Eye className="h-3 w-3" />
+                      <span className="hidden sm:inline">Visualizza DDT</span>
+                      <span className="sm:hidden">Vedi DDT</span>
+                    </button>
+                    <button
+                      onClick={() => handleDownloadDDT(entry)}
+                      className="flex items-center justify-center space-x-1 px-3 py-2 text-xs bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light transition-colors mobile-button-sm mobile-touch-feedback"
+                    >
+                      <Download className="h-3 w-3" />
+                      <span className="hidden sm:inline">Scarica DDT</span>
+                      <span className="sm:hidden">Download</span>
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-fradiavolo-charcoal-light mb-2 mobile-text-xs">
+                  Origine: {entry.codiceOrigine} - {entry.origine} • Destinazione: {entry.codiceDestinazione} - {entry.destinazione}
+                </p>
+                <div className="space-y-1 mobile-history-details">
+                  {entry.movimenti.map((m, idx) => (
+                    <div key={idx} className="text-sm mobile-text-sm">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2">
+                        <span className="font-medium text-fradiavolo-charcoal">{m.prodotto}</span>
+                        <span className="text-fradiavolo-green font-medium">
+                          {m.quantita} {m.uom}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead className="bg-fradiavolo-cream">
-                <tr className="text-left text-fradiavolo-charcoal">
-                  <th className="px-4 py-3 w-12"></th>
-                  <th className="px-4 py-3">
-                    <Calendar className="h-4 w-4 inline mr-1" />
-                    Data
-                  </th>
-                  <th className="px-4 py-3">
-                    <Hash className="h-4 w-4 inline mr-1" />
-                    DDT
-                  </th>
-                  <th className="px-4 py-3">
-                    <Package className="h-4 w-4 inline mr-1" />
-                    Articoli
-                  </th>
-                  <th className="px-4 py-3">
-                    <MapPin className="h-4 w-4 inline mr-1" />
-                    Origine
-                  </th>
-                  <th className="px-4 py-3">
-                    <MapPin className="h-4 w-4 inline mr-1" />
-                    Destinazione
-                  </th>
-                  <th className="px-4 py-3">
-                    <CheckCircle className="h-4 w-4 inline mr-1" />
-                    Stato
-                  </th>
-                  <th className="px-4 py-3 text-right">Azioni</th>
-                </tr>
-              </thead>
-              <tbody>
-                {storico.map((entry) => (
-                  <React.Fragment key={entry.id}>
-                    <tr className="border-t border-fradiavolo-cream-dark/50 hover:bg-fradiavolo-cream/20 transition-colors">
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => toggleDDT(entry.id)}
-                          className="p-1 hover:bg-fradiavolo-cream rounded transition-colors"
-                        >
-                          {expandedDDTs.has(entry.id) ? (
-                            <ChevronDown className="h-4 w-4 text-fradiavolo-charcoal" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 text-fradiavolo-charcoal" />
-                          )}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 text-fradiavolo-charcoal-light">
-                        {entry.data}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-medium text-fradiavolo-red">
-                          {entry.ddt_number}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex items-center justify-center rounded-full bg-fradiavolo-cream px-3 py-1 text-xs font-semibold text-fradiavolo-charcoal">
-                          {entry.movimenti.length}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center rounded-lg bg-fradiavolo-cream px-2 py-1 text-xs font-semibold text-fradiavolo-charcoal border border-fradiavolo-cream-dark">
-                            {entry.codiceOrigine}
-                          </span>
-                          <span className="text-fradiavolo-charcoal-light text-xs">
-                            {entry.origine}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="inline-flex items-center rounded-lg bg-fradiavolo-cream px-2 py-1 text-xs font-semibold text-fradiavolo-charcoal border border-fradiavolo-cream-dark">
-                            {entry.codiceDestinazione}
-                          </span>
-                          <span className="text-fradiavolo-charcoal-light text-xs">
-                            {entry.destinazione}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-fradiavolo-green/10 px-3 py-1 text-xs font-semibold text-fradiavolo-green-dark border border-fradiavolo-green/30">
-                          <CheckCircle className="h-3 w-3" />
-                          Registrato
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleViewDDT(entry)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light transition-colors"
-                          >
-                            <Eye className="h-3 w-3" />
-                            Visualizza
-                          </button>
-                          <button
-                            onClick={() => handleDownloadDDT(entry)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red-dark transition-colors"
-                          >
-                            <Download className="h-3 w-3" />
-                            Scarica
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                    
-                    {/* Dettaglio espandibile */}
-                    {expandedDDTs.has(entry.id) && (
-                      <tr className="border-t border-fradiavolo-cream-dark/50 bg-fradiavolo-cream/10">
-                        <td colSpan={8} className="px-4 py-4">
-                          <div className="ml-12 space-y-2">
-                            <h4 className="text-xs font-semibold text-fradiavolo-charcoal uppercase tracking-wide mb-3">
-                              Dettaglio Prodotti
-                            </h4>
-                            <div className="space-y-2">
-                              {entry.movimenti.map((m, idx) => (
-                                <div key={idx} className="flex items-center justify-between py-2 px-3 bg-white rounded-lg border border-fradiavolo-cream-dark">
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-xs text-fradiavolo-charcoal-light">
-                                      #{idx + 1}
-                                    </span>
-                                    <span className="text-sm font-medium text-fradiavolo-charcoal">
-                                      {m.prodotto}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-semibold text-fradiavolo-green">
-                                      {m.quantita} {m.uom}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+        </div>
+      )}
+
+      {storico.length === 0 && !isLoading && (
+        <div className="bg-white rounded-xl shadow-fradiavolo p-6 sm:p-8 border border-fradiavolo-cream-dark text-center">
+          <div className="text-fradiavolo-charcoal-light">
+            <svg className="mx-auto h-12 w-12 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+            </svg>
+            <h3 className="text-lg font-semibold text-fradiavolo-charcoal mb-2">Nessuna movimentazione trovata</h3>
+            <p className="text-fradiavolo-charcoal-light text-sm sm:text-base">
+              <span className="hidden sm:inline">Le movimentazioni registrate da {codiceOrigine} - {puntoOrigine} appariranno qui</span>
+              <span className="sm:hidden">Le movimentazioni da {codiceOrigine} appariranno qui</span>
+            </p>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
     </div>
   );
 };
