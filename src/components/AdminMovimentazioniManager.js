@@ -5,7 +5,6 @@ import {
   RefreshCw, 
   Download, 
   Eye, 
-  Check, 
   Clock, 
   Store, 
   Calendar,
@@ -16,9 +15,7 @@ import {
   Package,
   MapPin,
   FileText,
-  Activity,
-  ChevronRight,
-  ChevronLeft
+  ChevronRight
 } from 'lucide-react';
 import negoziData from '../data/negozi.json';
 
@@ -41,15 +38,14 @@ const AdminMovimentazioniManager = ({ user }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Filtri
+  // Filtri (senza "status")
   const [filters, setFilters] = useState({
     originStore: 'ALL',
     destStore: 'ALL',
     dateFrom: '',
     dateTo: '',
     product: '',
-    searchTerm: '',
-    status: 'ALL'
+    searchTerm: ''
   });
 
   // UI States
@@ -70,29 +66,6 @@ const AdminMovimentazioniManager = ({ user }) => {
     return new Date(dateString).toLocaleString('it-IT', {
       day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
     });
-  };
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'completato':
-        return <Check className="h-4 w-4 text-fradiavolo-green" />;
-      case 'in_transito':
-        return <Clock className="h-4 w-4 text-fradiavolo-orange" />;
-      case 'registrato':
-      default:
-        return <Activity className="h-4 w-4 text-fradiavolo-charcoal" />;
-    }
-  };
-  const getStatusBadge = (status) => {
-    const base = 'px-2 py-1 rounded-full text-xs font-medium border';
-    switch (status) {
-      case 'completato':
-        return `${base} bg-fradiavolo-green/10 text-fradiavolo-green border-fradiavolo-green/30`;
-      case 'in_transito':
-        return `${base} bg-fradiavolo-orange/10 text-fradiavolo-orange border-fradiavolo-orange/30`;
-      case 'registrato':
-      default:
-        return `${base} bg-fradiavolo-charcoal/10 text-fradiavolo-charcoal border-fradiavolo-charcoal/30`;
-    }
   };
   const getSortIcon = (columnKey) => {
     if (sortConfig.key !== columnKey) return <ChevronDown className="h-4 w-4 text-fradiavolo-charcoal-light" />;
@@ -208,9 +181,6 @@ const AdminMovimentazioniManager = ({ user }) => {
         g.prodotti.some(p => (p.prodotto || '').toLowerCase().includes(q) || (p.txt_content || '').toLowerCase().includes(q))
       );
     }
-    if (filters.status !== 'ALL') {
-      arr = arr.filter(g => g.stato === filters.status);
-    }
 
     if (sortConfig.key) {
       arr.sort((a, b) => {
@@ -234,7 +204,7 @@ const AdminMovimentazioniManager = ({ user }) => {
 
   // Azioni -------------------------------------------------------------
   const updateFilter = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
-  const resetFilters = () => setFilters({ originStore: 'ALL', destStore: 'ALL', dateFrom: '', dateTo: '', product: '', searchTerm: '', status: 'ALL' });
+  const resetFilters = () => setFilters({ originStore: 'ALL', destStore: 'ALL', dateFrom: '', dateTo: '', product: '', searchTerm: '' });
   const handleSort = (key) => setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
 
   const toggleGroupSelection = (gid) => {
@@ -390,19 +360,6 @@ const AdminMovimentazioniManager = ({ user }) => {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-2">Stato</label>
-            <select
-              value={filters.status}
-              onChange={(e) => updateFilter('status', e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-fradiavolo-cream-dark rounded-lg focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange transition-colors"
-            >
-              <option value="ALL">Tutti gli stati</option>
-              <option value="registrato">Registrato</option>
-              <option value="in_transito">In Transito</option>
-              <option value="completato">Completato</option>
-            </select>
-          </div>
-          <div>
             <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-2">Data Da</label>
             <input type="date" value={filters.dateFrom} onChange={(e) => updateFilter('dateFrom', e.target.value)} className="w-full px-3 py-2 text-sm border border-fradiavolo-cream-dark rounded-lg focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange transition-colors" />
           </div>
@@ -522,8 +479,8 @@ const AdminMovimentazioniManager = ({ user }) => {
               </thead>
               <tbody className="divide-y divide-fradiavolo-cream-dark">
                 {filteredGroups.map((g) => (
-                  <>
-                    <tr key={g.id} className="hover:bg-fradiavolo-cream/30 transition-colors">
+                  <React.Fragment key={g.id}>
+                    <tr className="hover:bg-fradiavolo-cream/30 transition-colors">
                       <td className="px-6 py-4">
                         <input
                           type="checkbox"
@@ -628,7 +585,7 @@ const AdminMovimentazioniManager = ({ user }) => {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
