@@ -1,21 +1,13 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  FileText,
-  Eye,
-  Edit3,
-  CheckCircle,
-  AlertCircle,
-  LogOut,
-  User,
-  Save,
-  X,
-  RefreshCw,
-  Truck,
-  Package
-} from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { FileText, Eye, Edit3, Download, CheckCircle, AlertCircle, LogOut, User, Users, Clock, Package, MessageCircle, Save, X, RefreshCw, Truck, HardDrive } from 'lucide-react';
 import Movimentazione from './Movimentazione';
+import AdminDashboard from './components/AdminDashboard';
+import AdminInvoiceManager from './components/AdminInvoiceManager';
+import AdminMovimentazioniManager from './components/AdminMovimentazioniManager';
+import AdminUserManager from './components/AdminUserManager'; // eventualmente usato in altre viste
 import TxtFilesManager from './TxtFilesManager';
 import AdminSidebarLayout from './components/AdminSidebarLayout';
+// ❌ rimosso: import usersData from './components/AdminUserManager';
 import negoziData from './data/negozi.json';
 
 // Normalizza input date in YYYY-MM-DD (accetta anche DD/MM/YYYY)
@@ -25,7 +17,7 @@ function toISODate(raw) {
   const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // DD/MM/YYYY
   if (m) {
     const [, dd, mm, yyyy] = m;
-    return `${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`;
+    return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
   }
   const d = new Date(raw);
   return isNaN(d) ? '' : d.toISOString().split('T')[0];
@@ -39,6 +31,7 @@ const InvoiceProcessorApp = () => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [sheetInvoices, setSheetInvoices] = useState([]);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('admin-dashboard');
   const [editingInvoice, setEditingInvoice] = useState(null);
@@ -54,60 +47,31 @@ const InvoiceProcessorApp = () => {
   // Funzione per trovare l'email dal negozio selezionato
   const getStoreEmail = (storeName) => {
     if (!storeName) return '';
-    const negozio = (availableStores || negoziData).find((n) => n.nome === storeName);
+    const negozio = (availableStores || negoziData).find(n => n.nome === storeName);
     return negozio?.email || '';
-    };
+  };
 
-  // API helper (stabile per gli effect)
-  const apiCall = useCallback(
-    async (endpoint, options = {}) => {
-      const fullUrl = `${API_BASE_URL}${endpoint}`;
-      console.log('🔍 URL chiamata:', fullUrl);
-      console.log('🔍 API_BASE_URL:', API_BASE_URL);
+  // Verifica token all'avvio
+  useEffect(() => {
+    if (token) {
+      verifyToken();
+    }
+  }, [token]);
 
-      const config = {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { Authorization: `Bearer ${token}` }),
-          ...options.headers
-        },
-        ...options
-      };
+  // Carica dati quando l'utente è autenticato
+  useEffect(() => {
+    if (user && (activeTab === 'pending' || activeTab === 'delivered')) {
+      loadInvoicesFromSheet();
+    }
+  }, [user, activeTab]);
 
-      try {
-        console.log('🔍 Fetch con config:', config);
-        const response = await fetch(fullUrl, config);
-        console.log('🔍 Response status:', response.status);
-
-        const text = await response.text();
-        console.log('🔍 Response text:', text.substring(0, 200));
-
-        if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-          throw new Error('Server ha restituito HTML invece di JSON');
-        }
-
-        const data = JSON.parse(text);
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Errore nella richiesta');
-        }
-
-        return data;
-      } catch (error) {
-        console.error('🔍 Errore API:', error);
-        throw error;
-      }
-    },
-    [token]
-  );
-
-  const loadAvailableStores = useCallback(async () => {
+  const loadAvailableStores = async () => {
     try {
-      const rawToken = localStorage.getItem('token');
-      const authHeader = rawToken?.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;
+      const token = localStorage.getItem('token');
+      const authHeader = token?.startsWith('Bearer ') ? token : `Bearer ${token}`;
 
       const response = await fetch(`${API_BASE_URL}/admin/stores`, {
-        headers: { Authorization: authHeader }
+        headers: { 'Authorization': authHeader }
       });
 
       if (response.ok) {
@@ -117,12 +81,74 @@ const InvoiceProcessorApp = () => {
     } catch (error) {
       console.error('Errore caricamento negozi:', error);
     }
-  }, []);
+  };
 
-  const verifyToken = useCallback(async () => {
+  // Imposta vista di default basata sul ruolo utente
+  useEffect(() => {
+    if (user && !activeTab) {
+      if (user.role === 'admin') {
+        setActiveTab('admin-dashboard'); // Vista predefinita per admin
+      } else {
+        setActiveTab('pending'); // Vista predefinita per utenti normali
+      }
+    }
+  }, [user, activeTab]);
+
+  // Auto-refresh ogni 10 minuti
+  useEffect(() => {
+    if (user && (activeTab === 'pending' || activeTab === 'delivered')) {
+      const interval = setInterval(() => {
+        loadInvoicesFromSheet();
+      }, 600000);
+      return () => clearInterval(interval);
+    }
+  }, [user, activeTab]);
+
+  // FUNZIONI API - AGGIORNATE
+  const apiCall = async (endpoint, options = {}) => {
+    const fullUrl = `${API_BASE_URL}${endpoint}`;
+    console.log('🔍 URL chiamata:', fullUrl);
+    console.log('🔍 API_BASE_URL:', API_BASE_URL);
+
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers
+      },
+      ...options
+    };
+
+    try {
+      console.log('🔍 Fetch con config:', config);
+      const response = await fetch(fullUrl, config);
+      console.log('🔍 Response status:', response.status);
+
+      const text = await response.text();
+      console.log('🔍 Response text:', text.substring(0, 200));
+
+      if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+        throw new Error('Server ha restituito HTML invece di JSON');
+      }
+
+      const data = JSON.parse(text);
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Errore nella richiesta');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('🔍 Errore API:', error);
+      throw error;
+    }
+  };
+
+  const verifyToken = async () => {
     try {
       const response = await apiCall('/auth/verify');
       setUser(response.user);
+      // opzionale: carico la lista negozi se admin
       if (response.user?.role === 'admin') {
         loadAvailableStores();
       }
@@ -131,11 +157,9 @@ const InvoiceProcessorApp = () => {
       setToken(null);
       setUser(null);
     }
-  }, [apiCall, loadAvailableStores]);
+  };
 
-  const loadInvoicesFromSheet = useCallback(async () => {
-    if (!user) return;
-
+  const loadInvoicesFromSheet = async () => {
     console.log('🔄 GET /api/invoices ricevuta');
     console.log('👤 Richiesta da utente:', user.email);
     console.log('🏢 Punto vendita:', user.puntoVendita);
@@ -144,17 +168,17 @@ const InvoiceProcessorApp = () => {
     try {
       setIsLoading(true);
 
-      const rawToken = localStorage.getItem('token');
-      if (!rawToken) {
+      const token = localStorage.getItem('token');
+      if (!token) {
         setError('Token non disponibile');
         return;
       }
 
-      const authHeader = rawToken.startsWith('Bearer ') ? rawToken : `Bearer ${rawToken}`;
+      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
 
       const response = await fetch(`${API_BASE_URL}/invoices`, {
         headers: {
-          Authorization: authHeader,
+          'Authorization': authHeader,
           'Content-Type': 'application/json'
         }
       });
@@ -167,12 +191,15 @@ const InvoiceProcessorApp = () => {
       console.log('📊 Dati ricevuti grezzi:', data.data);
 
       // Rimuovi duplicati basandoti sull'ID univoco
-      const uniqueInvoices = data.data.filter(
-        (invoice, index, self) => index === self.findIndex((i) => i.id === invoice.id)
+      const uniqueInvoices = data.data.filter((invoice, index, self) =>
+        index === self.findIndex(i => i.id === invoice.id)
       );
 
       console.log('📊 Fatture ricevute dal backend:', data.data.length);
       console.log('📊 Dopo rimozione duplicati:', uniqueInvoices.length);
+
+      console.log('📊 Dati dopo rimozione duplicati:', uniqueInvoices);
+      console.log('🔢 Fatture elaborate:', uniqueInvoices.length);
 
       setSheetInvoices(uniqueInvoices);
       setError('');
@@ -182,43 +209,7 @@ const InvoiceProcessorApp = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
-
-  // Verifica token all'avvio / quando cambia token
-  useEffect(() => {
-    if (token) {
-      verifyToken();
-    }
-  }, [token, verifyToken]);
-
-  // Carica dati quando l'utente è autenticato e si entra nelle tab fatture
-  useEffect(() => {
-    if (user && (activeTab === 'pending' || activeTab === 'delivered')) {
-      loadInvoicesFromSheet();
-    }
-  }, [user, activeTab, loadInvoicesFromSheet]);
-
-  // Imposta vista di default basata sul ruolo utente
-  useEffect(() => {
-    if (user && !activeTab) {
-      if (user.role === 'admin') {
-        setActiveTab('admin-dashboard');
-      } else {
-        setActiveTab('pending');
-      }
-    }
-  }, [user, activeTab]);
-
-  // Auto-refresh ogni 10 minuti nelle tab fatture
-  useEffect(() => {
-    if (user && (activeTab === 'pending' || activeTab === 'delivered')) {
-      const interval = setInterval(() => {
-        loadInvoicesFromSheet();
-      }, 600000);
-      return () => clearInterval(interval);
-    }
-    return undefined;
-  }, [user, activeTab, loadInvoicesFromSheet]);
+  };
 
   // AUTENTICAZIONE
   const handleLogin = async (e) => {
@@ -259,13 +250,14 @@ const InvoiceProcessorApp = () => {
     setUser(null);
     setLoginForm({ email: '', password: '' });
     setActiveTab('pending');
+    setSelectedInvoice(null);
     setEditingInvoice(null);
     setSheetInvoices([]);
     setSuccess('Logout effettuato con successo!');
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  // GESTIONE FATTURE
+  // GESTIONE FATTURE - AGGIORNATE
   const confirmDelivery = async (invoiceId, deliveryDate, noteErrori = '', customEmail = null) => {
     try {
       setIsLoading(true);
@@ -284,24 +276,21 @@ const InvoiceProcessorApp = () => {
       });
 
       // Poi aggiorna lo stato locale IMMEDIATAMENTE
-      setSheetInvoices((prev) =>
-        prev.map((inv) =>
-          inv.id.toString() === invoiceId.toString()
-            ? {
-                ...inv,
-                stato: 'consegnato',
-                data_consegna: toISODate(deliveryDate),
-                confermato_da: emailToUse,
-                note: noteErrori || inv.note || ''
-              }
-            : inv
-        )
-      );
+      setSheetInvoices(prev => prev.map(inv =>
+        inv.id.toString() === invoiceId.toString()
+          ? {
+              ...inv,
+              stato: 'consegnato',
+              data_consegna: toISODate(deliveryDate),
+              confermato_da: emailToUse,
+              note: noteErrori || inv.note || ''
+            }
+          : inv
+      ));
 
-      setSuccess(
-        noteErrori
-          ? '⚠️ Consegna confermata con note di errore! 📄 File TXT generato automaticamente.'
-          : '✅ Consegna confermata con successo! 📄 File TXT generato automaticamente.'
+      setSuccess(noteErrori
+        ? '⚠️ Consegna confermata con note di errore! 📄 File TXT generato automaticamente.'
+        : '✅ Consegna confermata con successo! 📄 File TXT generato automaticamente.'
       );
 
       // Ricarica dopo 2 secondi per sicurezza
@@ -322,45 +311,59 @@ const InvoiceProcessorApp = () => {
     try {
       setIsLoading(true);
 
+      console.log('🔄 updateInvoice chiamata con:', { invoiceId, updates });
+      console.log('🔄 Tipo invoiceId:', typeof invoiceId);
+
+      // Verifica che tutti i campi necessari siano presenti
       if (!updates.data_consegna) {
+        console.error('❌ data_consegna mancante');
         setError('❌ Data di consegna richiesta');
         setTimeout(() => setError(''), 3000);
         return;
       }
 
       if (!updates.confermato_da) {
+        console.error('❌ confermato_da mancante');
         setError('❌ Email di conferma richiesta');
         setTimeout(() => setError(''), 3000);
         return;
       }
 
-      // Aggiorna backend
+      // Prima aggiorna il backend
+      console.log('📡 Chiamando API...');
       const response = await apiCall(`/invoices/${invoiceId}`, {
         method: 'PUT',
         body: JSON.stringify(updates)
       });
+
       console.log('✅ Risposta API:', response);
 
-      // Aggiorna stato locale
-      setSheetInvoices((prev) => {
-        const updated = prev.map((inv) =>
-          inv.id.toString() === invoiceId.toString() ? { ...inv, ...updates } : inv
+      // Poi aggiorna lo stato locale IMMEDIATAMENTE
+      setSheetInvoices(prev => {
+        const updated = prev.map(inv =>
+          inv.id.toString() === invoiceId.toString()
+            ? { ...inv, ...updates }
+            : inv
         );
+        console.log('🔄 Stato locale aggiornato');
         return updated;
       });
 
       setSuccess('✅ Fattura aggiornata con successo! Verificando su Google Sheets...');
       setEditingInvoice(null);
 
-      // Ricarica per conferma
+      // Ricarica i dati dopo 3 secondi per conferma
       setTimeout(() => {
+        console.log('🔄 Ricaricamento dati di conferma...');
         loadInvoicesFromSheet().then(() => {
+          console.log('✅ Dati ricaricati da Google Sheets');
           setSuccess('✅ Fattura aggiornata e sincronizzata con Google Sheets!');
         });
       }, 3000);
 
       setTimeout(() => setSuccess(''), 8000);
     } catch (error) {
+      console.error('❌ Errore aggiornamento frontend:', error);
       setError('❌ Errore aggiornamento: ' + error.message);
       setTimeout(() => setError(''), 5000);
     } finally {
@@ -368,7 +371,14 @@ const InvoiceProcessorApp = () => {
     }
   };
 
-  // UTILITY
+  // Funzione helper per controllare i permessi utente
+  const hasPermission = (requiredPermission) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true; // Admin ha accesso completo
+    return user.permissions?.includes(requiredPermission);
+  };
+
+  // UTILITY FUNCTIONS
   const isOldInvoice = (dateString) => {
     const invoiceDate = new Date(dateString);
     const fiveDaysAgo = new Date();
@@ -384,29 +394,28 @@ const InvoiceProcessorApp = () => {
   );
 
   const AlertMessage = ({ type, message, onClose }) => (
-    <div
-      className={`mb-4 p-4 rounded-xl border flex items-center justify-between shadow-lg ${
-        type === 'error'
-          ? 'bg-red-50 text-red-800 border-red-200'
-          : type === 'success'
-          ? 'bg-fradiavolo-green/10 text-fradiavolo-green-dark border-fradiavolo-green/30'
-          : 'bg-blue-50 text-blue-800 border-blue-200'
-      }`}
-    >
+    <div className={`mb-4 p-4 rounded-xl border flex items-center justify-between shadow-lg ${
+      type === 'error' ? 'bg-red-50 text-red-800 border-red-200' :
+      type === 'success' ? 'bg-fradiavolo-green/10 text-fradiavolo-green-dark border-fradiavolo-green/30' :
+      'bg-blue-50 text-blue-800 border-blue-200'
+    }`}>
       <div className="flex items-center space-x-3">
         {type === 'error' && <AlertCircle className="h-5 w-5 flex-shrink-0" />}
         {type === 'success' && <CheckCircle className="h-5 w-5 flex-shrink-0" />}
         <span className="font-medium">{message}</span>
       </div>
       {onClose && (
-        <button onClick={onClose} className="text-current opacity-70 hover:opacity-100 transition-opacity">
+        <button
+          onClick={onClose}
+          className="text-current opacity-70 hover:opacity-100 transition-opacity"
+        >
           <X className="h-4 w-4" />
         </button>
       )}
     </div>
   );
 
-  // LOGIN
+  // LOGIN FORM
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-fradiavolo-cream via-white to-fradiavolo-cream-dark flex items-center justify-center p-4">
@@ -417,12 +426,25 @@ const InvoiceProcessorApp = () => {
             </div>
             <h1 className="text-3xl font-bold text-fradiavolo-charcoal mb-2">Fradiavolo Invoice</h1>
             <p className="text-fradiavolo-charcoal-light font-medium">Dashboard Consegna Merce</p>
-            <div className="mt-4 text-sm text-fradiavolo-red font-medium">Pizza Contemporanea • Qualità Italiana</div>
+            <div className="mt-4 text-sm text-fradiavolo-red font-medium">
+              Pizza Contemporanea • Qualità Italiana
+            </div>
           </div>
 
-          {loginError && <AlertMessage type="error" message={loginError} onClose={() => setLoginError('')} />}
+          {loginError && (
+            <AlertMessage
+              type="error"
+              message={loginError}
+              onClose={() => setLoginError('')}
+            />
+          )}
 
-          {success && <AlertMessage type="success" message={success} />}
+          {success && (
+            <AlertMessage
+              type="success"
+              message={success}
+            />
+          )}
 
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
@@ -430,7 +452,7 @@ const InvoiceProcessorApp = () => {
               <input
                 type="email"
                 value={loginForm.email}
-                onChange={(e) => setLoginForm((prev) => ({ ...prev, email: e.target.value }))}
+                onChange={(e) => setLoginForm(prev => ({ ...prev, email: e.target.value }))}
                 className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
                 placeholder="utente@azienda.it"
                 required
@@ -442,7 +464,7 @@ const InvoiceProcessorApp = () => {
               <input
                 type="password"
                 value={loginForm.password}
-                onChange={(e) => setLoginForm((prev) => ({ ...prev, password: e.target.value }))}
+                onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
                 className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
                 placeholder="••••••••"
                 required
@@ -459,20 +481,16 @@ const InvoiceProcessorApp = () => {
           </form>
 
           <div className="mt-8 p-4 bg-fradiavolo-cream rounded-xl border border-fradiavolo-cream-dark">
-            <p className="text-xs text-fradiavolo-charcoal text-center mb-2">
-              <strong>Credenziali Demo:</strong>
-            </p>
-            <p className="text-xs text-fradiavolo-charcoal-light text-center">
-              milano.isola@fradiavolopizzeria.com / isola2025
-            </p>
+            <p className="text-xs text-fradiavolo-charcoal text-center mb-2"><strong>Credenziali Demo:</strong></p>
+            <p className="text-xs text-fradiavolo-charcoal-light text-center">milano.isola@fradiavolopizzeria.com / isola2025</p>
           </div>
         </div>
       </div>
     );
   }
 
-  const pendingInvoices = sheetInvoices.filter((inv) => inv.stato === 'pending');
-  const deliveredInvoices = sheetInvoices.filter((inv) => inv.stato === 'consegnato');
+  const pendingInvoices = sheetInvoices.filter(inv => inv.stato === 'pending');
+  const deliveredInvoices = sheetInvoices.filter(inv => inv.stato === 'consegnato');
 
   console.log('📋 Tutte le fatture:', sheetInvoices);
   console.log('⏳ Fatture pending:', pendingInvoices);
@@ -540,15 +558,32 @@ const InvoiceProcessorApp = () => {
 
       {/* Alert Messages */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
-        {error && <AlertMessage type="error" message={error} onClose={() => setError('')} />}
-        {success && <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />}
+        {error && (
+          <AlertMessage
+            type="error"
+            message={error}
+            onClose={() => setError('')}
+          />
+        )}
+        {success && (
+          <AlertMessage
+            type="success"
+            message={success}
+            onClose={() => setSuccess('')}
+          />
+        )}
       </div>
 
       {/* Layout condizionale Admin vs Operator */}
       {user?.role === 'admin' ? (
         // LAYOUT SIDEBAR PER ADMIN
         <div className="flex-1 min-h-screen">
-          <AdminSidebarLayout user={user} activeTab={activeTab} setActiveTab={setActiveTab}>
+          <AdminSidebarLayout
+            user={user}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+        
+          >
             {/* Contenuto per pending/delivered viene passato come children */}
             {activeTab === 'pending' && (
               <div>
@@ -568,14 +603,12 @@ const InvoiceProcessorApp = () => {
                   </label>
                   <select
                     value={selectedStoreForConfirmation}
-                    onChange={(e) => setSelectedStoreForConfirmation(e.target.value)}
+                    onChange={e => setSelectedStoreForConfirmation(e.target.value)}
                     className="w-full px-3 py-2 border border-fradiavolo-cream-dark rounded-lg focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
                   >
                     <option value="">Seleziona punto vendita...</option>
-                    {(availableStores || negoziData).map((store) => (
-                      <option key={store.nome} value={store.nome}>
-                        {store.nome}
-                      </option>
+                    {(availableStores || negoziData).map(store => (
+                      <option key={store.nome} value={store.nome}>{store.nome}</option>
                     ))}
                   </select>
                 </div>
@@ -609,16 +642,8 @@ const InvoiceProcessorApp = () => {
                         >
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 sm:mb-6">
                             <div className="flex items-center space-x-3 sm:space-x-4 mb-3 sm:mb-0">
-                              <div
-                                className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${
-                                  isOld ? 'bg-fradiavolo-red/10' : 'bg-fradiavolo-cream'
-                                } border ${isOld ? 'border-fradiavolo-red/30' : 'border-fradiavolo-cream-dark'}`}
-                              >
-                                <FileText
-                                  className={`h-5 w-5 sm:h-6 sm:w-6 ${
-                                    isOld ? 'text-fradiavolo-red' : 'text-fradiavolo-charcoal'
-                                  }`}
-                                />
+                              <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${isOld ? 'bg-fradiavolo-red/10' : 'bg-fradiavolo-cream'} border ${isOld ? 'border-fradiavolo-red/30' : 'border-fradiavolo-cream-dark'}`}>
+                                <FileText className={`h-5 w-5 sm:h-6 sm:w-6 ${isOld ? 'text-fradiavolo-red' : 'text-fradiavolo-charcoal'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h3 className="text-lg sm:text-xl font-bold text-fradiavolo-charcoal flex items-center">
@@ -632,9 +657,7 @@ const InvoiceProcessorApp = () => {
                                   </span>
                                 </h3>
                                 <p className="text-sm sm:text-base text-fradiavolo-charcoal-light mt-1">
-                                  <span className="font-semibold">
-                                    {new Date(invoice.data_emissione).toLocaleDateString('it-IT')}
-                                  </span>
+                                  <span className="font-semibold">{new Date(invoice.data_emissione).toLocaleDateString('it-IT')}</span>
                                   {isOld && (
                                     <span className="text-fradiavolo-red font-semibold block sm:inline sm:ml-2">
                                       (Scaduta da oltre 5 giorni)
@@ -721,7 +744,7 @@ const InvoiceProcessorApp = () => {
                                   setErrorModalInvoice({
                                     ...invoice,
                                     deliveryDate: iso,
-                                    confermato_da: getStoreEmail(selectedStoreForConfirmation)
+                                    confermato_da: getStoreEmail(selectedStoreForConfirmation),
                                   });
                                   setErrorNotes('');
                                 }}
@@ -776,16 +799,18 @@ const InvoiceProcessorApp = () => {
                         <div
                           key={invoice.id}
                           className={`rounded-2xl shadow-fradiavolo p-6 border transition-all hover:shadow-fradiavolo-lg ${
-                            hasErrors ? 'bg-fradiavolo-orange/10 border-fradiavolo-orange/30' : 'bg-white border-fradiavolo-cream-dark'
+                            hasErrors
+                              ? 'bg-fradiavolo-orange/10 border-fradiavolo-orange/30'
+                              : 'bg-white border-fradiavolo-cream-dark'
                           }`}
                         >
                           <div className="flex justify-between items-start mb-6">
                             <div className="flex items-center space-x-4">
-                              <div
-                                className={`p-3 rounded-2xl ${
-                                  hasErrors ? 'bg-fradiavolo-orange/20' : 'bg-fradiavolo-green/20'
-                                } border ${hasErrors ? 'border-fradiavolo-orange/30' : 'border-fradiavolo-green/30'}`}
-                              >
+                              <div className={`p-3 rounded-2xl ${
+                                hasErrors ? 'bg-fradiavolo-orange/20' : 'bg-fradiavolo-green/20'
+                              } border ${
+                                hasErrors ? 'border-fradiavolo-orange/30' : 'border-fradiavolo-green/30'
+                              }`}>
                                 {hasErrors ? (
                                   <AlertCircle className="h-6 w-6 text-fradiavolo-orange" />
                                 ) : (
@@ -798,22 +823,14 @@ const InvoiceProcessorApp = () => {
                                 </h3>
                                 <div className="mt-2 space-y-1">
                                   <p className="text-fradiavolo-charcoal-light">
-                                    Emessa il:{' '}
-                                    <span className="font-semibold text-fradiavolo-charcoal">
-                                      {new Date(invoice.data_emissione).toLocaleDateString('it-IT')}
-                                    </span>
+                                    Emessa il: <span className="font-semibold text-fradiavolo-charcoal">{new Date(invoice.data_emissione).toLocaleDateString('it-IT')}</span>
                                   </p>
-                                  <p
-                                    className={`font-semibold ${
-                                      hasErrors ? 'text-fradiavolo-orange' : 'text-fradiavolo-green'
-                                    }`}
-                                  >
-                                    {hasErrors ? '⚠️' : '✅'} Consegnata il:{' '}
-                                    {new Date(invoice.data_consegna).toLocaleDateString('it-IT')}
+                                  <p className={`font-semibold ${
+                                    hasErrors ? 'text-fradiavolo-orange' : 'text-fradiavolo-green'
+                                  }`}>
+                                    {hasErrors ? '⚠️' : '✅'} Consegnata il: {new Date(invoice.data_consegna).toLocaleDateString('it-IT')}
                                     {hasErrors && <span className="text-fradiavolo-red ml-2">(Con errori)</span>}
-                                    {!hasErrors && (
-                                      <span className="text-fradiavolo-green ml-2 text-sm">📄 File TXT generato</span>
-                                    )}
+                                    {!hasErrors && <span className="text-fradiavolo-green ml-2 text-sm">📄 File TXT generato</span>}
                                   </p>
                                   {hasErrors && (
                                     <div className="mt-3 p-3 bg-fradiavolo-orange/10 rounded-lg border border-fradiavolo-orange/30">
@@ -837,9 +854,7 @@ const InvoiceProcessorApp = () => {
                               <div className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
-                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                                      Data consegna
-                                    </label>
+                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Data consegna</label>
                                     <input
                                       type="date"
                                       defaultValue={invoice.data_consegna}
@@ -849,9 +864,7 @@ const InvoiceProcessorApp = () => {
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                                      Confermato da
-                                    </label>
+                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Confermato da</label>
                                     <input
                                       type="email"
                                       defaultValue={invoice.confermato_da}
@@ -861,9 +874,7 @@ const InvoiceProcessorApp = () => {
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                                    Note errori (opzionale)
-                                  </label>
+                                  <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Note errori (opzionale)</label>
                                   <textarea
                                     defaultValue={invoice.note || ''}
                                     id={`edit-notes-${invoice.id}`}
@@ -876,17 +887,27 @@ const InvoiceProcessorApp = () => {
                               <div className="flex space-x-3">
                                 <button
                                   onClick={() => {
+                                    console.log('🔄 Bottone Salva Modifiche cliccato');
+
                                     const dateInput = document.getElementById(`edit-date-${invoice.id}`);
                                     const confirmedInput = document.getElementById(`edit-confirmed-${invoice.id}`);
                                     const notesInput = document.getElementById(`edit-notes-${invoice.id}`);
 
+                                    console.log('📝 Valori input:', {
+                                      date: dateInput?.value,
+                                      confirmed: confirmedInput?.value,
+                                      notes: notesInput?.value
+                                    });
+
                                     if (!dateInput?.value) {
+                                      console.error('❌ Data mancante');
                                       setError('⚠️ Data di consegna richiesta');
                                       setTimeout(() => setError(''), 3000);
                                       return;
                                     }
 
                                     if (!confirmedInput?.value) {
+                                      console.error('❌ Email mancante');
                                       setError('⚠️ Email di conferma richiesta');
                                       setTimeout(() => setError(''), 3000);
                                       return;
@@ -903,6 +924,7 @@ const InvoiceProcessorApp = () => {
                                       note: notesInput?.value || ''
                                     };
 
+                                    console.log('💾 Chiamando updateInvoice con:', updateData);
                                     updateInvoice(invoice.id, updateData);
                                   }}
                                   disabled={isLoading}
@@ -957,7 +979,9 @@ const InvoiceProcessorApp = () => {
                 <Package className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="hidden sm:inline truncate">Da confermare</span>
                 <span className="sm:hidden truncate">Pending</span>
-                <span className="font-bold bg-white/20 px-1 rounded text-xs">({pendingInvoices.length})</span>
+                <span className="font-bold bg-white/20 px-1 rounded text-xs">
+                  ({pendingInvoices.length})
+                </span>
               </button>
 
               <button
@@ -971,7 +995,9 @@ const InvoiceProcessorApp = () => {
                 <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                 <span className="hidden sm:inline truncate">Confermate</span>
                 <span className="sm:hidden truncate">Done</span>
-                <span className="font-bold bg-white/20 px-1 rounded text-xs">({deliveredInvoices.length})</span>
+                <span className="font-bold bg-white/20 px-1 rounded text-xs">
+                  ({deliveredInvoices.length})
+                </span>
               </button>
 
               <button
@@ -992,10 +1018,14 @@ const InvoiceProcessorApp = () => {
           {/* Contenuto per Operator */}
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             {/* Tab Movimentazione */}
-            {activeTab === 'movimentazione' && <Movimentazione user={user} />}
+            {activeTab === 'movimentazione' && (
+              <Movimentazione user={user} />
+            )}
 
             {/* TAB FILE TXT */}
-            {activeTab === 'txt-files' && <TxtFilesManager user={user} />}
+            {activeTab === 'txt-files' && (
+              <TxtFilesManager user={user} />
+            )}
 
             {/* Tab Da Confermare per Operator */}
             {activeTab === 'pending' && (
@@ -1038,16 +1068,8 @@ const InvoiceProcessorApp = () => {
                         >
                           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4 sm:mb-6">
                             <div className="flex items-center space-x-3 sm:space-x-4 mb-3 sm:mb-0">
-                              <div
-                                className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${
-                                  isOld ? 'bg-fradiavolo-red/10' : 'bg-fradiavolo-cream'
-                                } border ${isOld ? 'border-fradiavolo-red/30' : 'border-fradiavolo-cream-dark'}`}
-                              >
-                                <FileText
-                                  className={`h-5 w-5 sm:h-6 sm:w-6 ${
-                                    isOld ? 'text-fradiavolo-red' : 'text-fradiavolo-charcoal'
-                                  }`}
-                                />
+                              <div className={`p-2 sm:p-3 rounded-xl sm:rounded-2xl ${isOld ? 'bg-fradiavolo-red/10' : 'bg-fradiavolo-cream'} border ${isOld ? 'border-fradiavolo-red/30' : 'border-fradiavolo-cream-dark'}`}>
+                                <FileText className={`h-5 w-5 sm:h-6 sm:w-6 ${isOld ? 'text-fradiavolo-red' : 'text-fradiavolo-charcoal'}`} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h3 className="text-lg sm:text-xl font-bold text-fradiavolo-charcoal flex items-center">
@@ -1061,9 +1083,7 @@ const InvoiceProcessorApp = () => {
                                   </span>
                                 </h3>
                                 <p className="text-sm sm:text-base text-fradiavolo-charcoal-light mt-1">
-                                  <span className="font-semibold">
-                                    {new Date(invoice.data_emissione).toLocaleDateString('it-IT')}
-                                  </span>
+                                  <span className="font-semibold">{new Date(invoice.data_emissione).toLocaleDateString('it-IT')}</span>
                                   {isOld && (
                                     <span className="text-fradiavolo-red font-semibold block sm:inline sm:ml-2">
                                       (Scaduta da oltre 5 giorni)
@@ -1149,7 +1169,7 @@ const InvoiceProcessorApp = () => {
                                   setErrorModalInvoice({
                                     ...invoice,
                                     deliveryDate: iso,
-                                    confermato_da: getStoreEmail(selectedStoreForConfirmation)
+                                    confermato_da: getStoreEmail(selectedStoreForConfirmation),
                                   });
                                   setErrorNotes('');
                                 }}
@@ -1205,16 +1225,18 @@ const InvoiceProcessorApp = () => {
                         <div
                           key={invoice.id}
                           className={`rounded-2xl shadow-fradiavolo p-6 border transition-all hover:shadow-fradiavolo-lg ${
-                            hasErrors ? 'bg-fradiavolo-orange/10 border-fradiavolo-orange/30' : 'bg-white border-fradiavolo-cream-dark'
+                            hasErrors
+                              ? 'bg-fradiavolo-orange/10 border-fradiavolo-orange/30'
+                              : 'bg-white border-fradiavolo-cream-dark'
                           }`}
                         >
                           <div className="flex justify-between items-start mb-6">
                             <div className="flex items-center space-x-4">
-                              <div
-                                className={`p-3 rounded-2xl ${
-                                  hasErrors ? 'bg-fradiavolo-orange/20' : 'bg-fradiavolo-green/20'
-                                } border ${hasErrors ? 'border-fradiavolo-orange/30' : 'border-fradiavolo-green/30'}`}
-                              >
+                              <div className={`p-3 rounded-2xl ${
+                                hasErrors ? 'bg-fradiavolo-orange/20' : 'bg-fradiavolo-green/20'
+                              } border ${
+                                hasErrors ? 'border-fradiavolo-orange/30' : 'border-fradiavolo-green/30'
+                              }`}>
                                 {hasErrors ? (
                                   <AlertCircle className="h-6 w-6 text-fradiavolo-orange" />
                                 ) : (
@@ -1227,22 +1249,14 @@ const InvoiceProcessorApp = () => {
                                 </h3>
                                 <div className="mt-2 space-y-1">
                                   <p className="text-fradiavolo-charcoal-light">
-                                    Emessa il:{' '}
-                                    <span className="font-semibold text-fradiavolo-charcoal">
-                                      {new Date(invoice.data_emissione).toLocaleDateString('it-IT')}
-                                    </span>
+                                    Emessa il: <span className="font-semibold text-fradiavolo-charcoal">{new Date(invoice.data_emissione).toLocaleDateString('it-IT')}</span>
                                   </p>
-                                  <p
-                                    className={`font-semibold ${
-                                      hasErrors ? 'text-fradiavolo-orange' : 'text-fradiavolo-green'
-                                    }`}
-                                  >
-                                    {hasErrors ? '⚠️' : '✅'} Consegnata il:{' '}
-                                    {new Date(invoice.data_consegna).toLocaleDateString('it-IT')}
+                                  <p className={`font-semibold ${
+                                    hasErrors ? 'text-fradiavolo-orange' : 'text-fradiavolo-green'
+                                  }`}>
+                                    {hasErrors ? '⚠️' : '✅'} Consegnata il: {new Date(invoice.data_consegna).toLocaleDateString('it-IT')}
                                     {hasErrors && <span className="text-fradiavolo-red ml-2">(Con errori)</span>}
-                                    {!hasErrors && (
-                                      <span className="text-fradiavolo-green ml-2 text-sm">📄 File TXT generato</span>
-                                    )}
+                                    {!hasErrors && <span className="text-fradiavolo-green ml-2 text-sm">📄 File TXT generato</span>}
                                   </p>
                                   {hasErrors && (
                                     <div className="mt-3 p-3 bg-fradiavolo-orange/10 rounded-lg border border-fradiavolo-orange/30">
@@ -1266,9 +1280,7 @@ const InvoiceProcessorApp = () => {
                               <div className="space-y-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div>
-                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                                      Data consegna
-                                    </label>
+                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Data consegna</label>
                                     <input
                                       type="date"
                                       defaultValue={invoice.data_consegna}
@@ -1278,9 +1290,7 @@ const InvoiceProcessorApp = () => {
                                     />
                                   </div>
                                   <div>
-                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                                      Confermato da
-                                    </label>
+                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Confermato da</label>
                                     <input
                                       type="email"
                                       defaultValue={invoice.confermato_da}
@@ -1290,9 +1300,7 @@ const InvoiceProcessorApp = () => {
                                   </div>
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                                    Note errori (opzionale)
-                                  </label>
+                                  <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Note errori (opzionale)</label>
                                   <textarea
                                     defaultValue={invoice.note || ''}
                                     id={`edit-notes-${invoice.id}`}
@@ -1305,17 +1313,27 @@ const InvoiceProcessorApp = () => {
                               <div className="flex space-x-3">
                                 <button
                                   onClick={() => {
+                                    console.log('🔄 Bottone Salva Modifiche cliccato');
+
                                     const dateInput = document.getElementById(`edit-date-${invoice.id}`);
                                     const confirmedInput = document.getElementById(`edit-confirmed-${invoice.id}`);
                                     const notesInput = document.getElementById(`edit-notes-${invoice.id}`);
 
+                                    console.log('📝 Valori input:', {
+                                      date: dateInput?.value,
+                                      confirmed: confirmedInput?.value,
+                                      notes: notesInput?.value
+                                    });
+
                                     if (!dateInput?.value) {
+                                      console.error('❌ Data mancante');
                                       setError('⚠️ Data di consegna richiesta');
                                       setTimeout(() => setError(''), 3000);
                                       return;
                                     }
 
                                     if (!confirmedInput?.value) {
+                                      console.error('❌ Email mancante');
                                       setError('⚠️ Email di conferma richiesta');
                                       setTimeout(() => setError(''), 3000);
                                       return;
@@ -1332,6 +1350,7 @@ const InvoiceProcessorApp = () => {
                                       note: notesInput?.value || ''
                                     };
 
+                                    console.log('💾 Chiamando updateInvoice con:', updateData);
                                     updateInvoice(invoice.id, updateData);
                                   }}
                                   disabled={isLoading}
@@ -1411,16 +1430,11 @@ const InvoiceProcessorApp = () => {
                 <button
                   onClick={() => {
                     if (!errorNotes.trim()) {
-                      setError("⚠️ Inserisci una descrizione dell'errore");
+                      setError('⚠️ Inserisci una descrizione dell\'errore');
                       setTimeout(() => setError(''), 3000);
                       return;
                     }
-                    confirmDelivery(
-                      errorModalInvoice.id,
-                      errorModalInvoice.deliveryDate,
-                      errorNotes,
-                      errorModalInvoice.confermato_da
-                    );
+                    confirmDelivery(errorModalInvoice.id, errorModalInvoice.deliveryDate, errorNotes, errorModalInvoice.confermato_da);
                     setErrorModalInvoice(null);
                     setErrorNotes('');
                   }}
