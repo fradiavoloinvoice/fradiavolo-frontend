@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, Calendar, MapPin, Package, CheckCircle,
-  Clock, Search, Filter, Eye, X, FileCheck, Store
+  Clock, Search, Filter, Eye, X, FileCheck, Store, Truck
 } from 'lucide-react';
 
 // 🔧 Normalizza la base URL: rimuove un eventuale "/api" e lo slash finale
@@ -16,6 +16,7 @@ const AdminInvoiceManager = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all | confirmed | pending
   const [storeFilter, setStoreFilter] = useState('all'); // all | nome punto vendita
+  const [supplierFilter, setSupplierFilter] = useState('all'); // ✅ NUOVO: filtro fornitore
   const [selectedDDT, setSelectedDDT] = useState(null);
   const [showDDTModal, setShowDDTModal] = useState(false);
 
@@ -40,8 +41,8 @@ const AdminInvoiceManager = () => {
         id: r.id ?? r.ID ?? r.row_id,
         numeroFattura: r.numero ?? r.numero_fattura ?? '',
         fornitore: r.fornitore ?? '',
-        dataEmissione: r.data_emissione ?? '',  // ✅ Data emissione
-        dataConsegna: r.data_consegna ?? '',     // ✅ Data consegna (separata)
+        dataEmissione: r.data_emissione ?? '',
+        dataConsegna: r.data_consegna ?? '',
         puntoVendita: r.punto_vendita ?? r.store ?? '',
         consegnato: r.stato === 'consegnato' || r.consegnato === true,
         testoDDT: r.testo_ddt ?? r.ddt_text ?? ''
@@ -68,8 +69,11 @@ const AdminInvoiceManager = () => {
     setShowDDTModal(true);
   };
 
-  // Estrai lista unica di punti vendita per il filtro
+  // ✅ Estrai lista unica di punti vendita per il filtro
   const uniqueStores = [...new Set(invoices.map(inv => inv.puntoVendita))].filter(Boolean).sort();
+  
+  // ✅ Estrai lista unica di fornitori per il filtro
+  const uniqueSuppliers = [...new Set(invoices.map(inv => inv.fornitore))].filter(Boolean).sort();
 
   // Filtri
   const filteredInvoices = invoices.filter(inv => {
@@ -88,7 +92,12 @@ const AdminInvoiceManager = () => {
       storeFilter === 'all' ||
       inv.puntoVendita === storeFilter;
 
-    return matchesSearch && matchesStatus && matchesStore;
+    // ✅ NUOVO: filtro fornitore
+    const matchesSupplier =
+      supplierFilter === 'all' ||
+      inv.fornitore === supplierFilter;
+
+    return matchesSearch && matchesStatus && matchesStore && matchesSupplier;
   });
 
   const stats = {
@@ -167,13 +176,29 @@ const AdminInvoiceManager = () => {
             </select>
           </div>
 
+          {/* ✅ NUOVO: Filtro Fornitore */}
+          <div className="flex items-center gap-2 bg-white rounded-xl border border-fradiavolo-cream-dark px-4 py-3 shadow-fradiavolo">
+            <Truck className="h-5 w-5 text-fradiavolo-charcoal-light" />
+            <select
+              className="text-sm outline-none text-fradiavolo-charcoal font-medium cursor-pointer max-w-[200px]"
+              value={supplierFilter}
+              onChange={(e) => setSupplierFilter(e.target.value)}
+            >
+              <option value="all">Tutti i fornitori</option>
+              {uniqueSuppliers.map(supplier => (
+                <option key={supplier} value={supplier}>{supplier}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Reset Filtri */}
-          {(searchTerm || statusFilter !== 'all' || storeFilter !== 'all') && (
+          {(searchTerm || statusFilter !== 'all' || storeFilter !== 'all' || supplierFilter !== 'all') && (
             <button
               onClick={() => {
                 setSearchTerm('');
                 setStatusFilter('all');
                 setStoreFilter('all');
+                setSupplierFilter('all');
               }}
               className="px-4 py-3 text-sm text-fradiavolo-red hover:bg-fradiavolo-cream rounded-xl transition font-medium"
             >
@@ -293,7 +318,10 @@ const AdminInvoiceManager = () => {
 
                     {/* Fornitore */}
                     <td className="px-6 py-4 text-sm text-fradiavolo-charcoal">
-                      {invoice.fornitore}
+                      <div className="flex items-center">
+                        <Truck className="h-4 w-4 mr-2 text-fradiavolo-charcoal-light" />
+                        {invoice.fornitore}
+                      </div>
                     </td>
 
                     {/* Punto vendita */}
