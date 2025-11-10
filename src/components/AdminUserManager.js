@@ -105,7 +105,6 @@ const AdminUserManager = ({ user }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setStores(data.stores);
       }
     } catch (error) {
       console.error('❌ Errore caricamento negozi:', error);
