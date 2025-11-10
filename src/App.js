@@ -480,10 +480,7 @@ const InvoiceProcessorApp = () => {
             </button>
           </form>
 
-          <div className="mt-8 p-4 bg-fradiavolo-cream rounded-xl border border-fradiavolo-cream-dark">
-            <p className="text-xs text-fradiavolo-charcoal text-center mb-2"><strong>Credenziali Demo:</strong></p>
-            <p className="text-xs text-fradiavolo-charcoal-light text-center">milano.isola@fradiavolopizzeria.com / isola2025</p>
-          </div>
+          
         </div>
       </div>
     );
