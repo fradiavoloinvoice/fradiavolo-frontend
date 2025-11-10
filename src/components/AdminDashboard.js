@@ -4,17 +4,9 @@ import {
   Store, 
   FileText, 
   Truck, 
-  BarChart3, 
-  Settings, 
-  Download, 
   RefreshCw,
   AlertTriangle,
   CheckCircle,
-  Clock,
-  TrendingUp,
-  Calendar,
-  Filter,
-  Eye,
   Shield,
   Globe
 } from 'lucide-react';
@@ -23,7 +15,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 
 const AdminDashboard = ({ user }) => {
   const [dashboardStats, setDashboardStats] = useState(null);
-  const [stores, setStores] = useState([]);
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -67,25 +58,6 @@ const AdminDashboard = ({ user }) => {
     }
   };
 
-  // Carica lista negozi
-  const loadStores = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-
-      const response = await fetch(`${API_BASE_URL}/admin/stores`, {
-        headers: { 'Authorization': authHeader }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStores(data.stores);
-      }
-    } catch (error) {
-      console.error('❌ Errore caricamento negozi:', error);
-    }
-  };
-
   // Carica lista utenti
   const loadUsers = async () => {
     try {
@@ -105,48 +77,10 @@ const AdminDashboard = ({ user }) => {
     }
   };
 
-  // Export dati
-  const exportData = async (type = 'all', format = 'json') => {
-    try {
-      setError('');
-      
-      const token = localStorage.getItem('token');
-      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-
-      const response = await fetch(`${API_BASE_URL}/admin/export?type=${type}&format=${format}`, {
-        headers: { 'Authorization': authHeader }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Errore ${response.status}`);
-      }
-
-      if (format === 'json') {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `fradiavolo_export_${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-        
-        setSuccess(`✅ Export ${type} completato!`);
-        setTimeout(() => setSuccess(''), 3000);
-      }
-
-    } catch (error) {
-      console.error('❌ Errore export:', error);
-      setError('Errore nell\'export: ' + error.message);
-      setTimeout(() => setError(''), 5000);
-    }
-  };
 
   // Carica tutti i dati all'avvio
   useEffect(() => {
     loadDashboardStats();
-    loadStores();
     loadUsers();
   }, []);
 
