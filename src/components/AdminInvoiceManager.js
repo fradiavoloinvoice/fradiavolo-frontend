@@ -40,7 +40,8 @@ const AdminInvoiceManager = () => {
         id: r.id ?? r.ID ?? r.row_id,
         numeroFattura: r.numero ?? r.numero_fattura ?? '',
         fornitore: r.fornitore ?? '',
-        dataConsegna: r.data_consegna || r.data_emissione || '',
+        dataEmissione: r.data_emissione ?? '',  // ✅ Data emissione
+        dataConsegna: r.data_consegna ?? '',     // ✅ Data consegna (separata)
         puntoVendita: r.punto_vendita ?? r.store ?? '',
         consegnato: r.stato === 'consegnato' || r.consegnato === true,
         testoDDT: r.testo_ddt ?? r.ddt_text ?? ''
@@ -59,6 +60,7 @@ const AdminInvoiceManager = () => {
     setSelectedDDT({
       numeroFattura: invoice.numeroFattura,
       fornitore: invoice.fornitore,
+      dataEmissione: invoice.dataEmissione,
       dataConsegna: invoice.dataConsegna,
       puntoVendita: invoice.puntoVendita,
       testoDDT: invoice.testoDDT || 'Nessun DDT disponibile'
@@ -239,7 +241,7 @@ const AdminInvoiceManager = () => {
                   Numero
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
-                  Data consegna
+                  Data Emissione
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
                   Fornitore
@@ -281,11 +283,11 @@ const AdminInvoiceManager = () => {
                       </div>
                     </td>
 
-                    {/* Data */}
+                    {/* Data Emissione */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm text-fradiavolo-charcoal">
                         <Calendar className="h-4 w-4 mr-2 text-fradiavolo-charcoal-light" />
-                        {invoice.dataConsegna || '—'}
+                        {invoice.dataEmissione || '—'}
                       </div>
                     </td>
 
@@ -414,10 +416,23 @@ const DDTModal = ({ ddt, onClose }) => (
                 <Calendar className="h-4 w-4 text-fradiavolo-red" />
               </div>
               <div>
-                <span className="text-fradiavolo-charcoal-light text-xs uppercase tracking-wide">Data Consegna</span>
-                <p className="font-semibold text-fradiavolo-charcoal">{ddt.dataConsegna}</p>
+                <span className="text-fradiavolo-charcoal-light text-xs uppercase tracking-wide">Data Emissione</span>
+                <p className="font-semibold text-fradiavolo-charcoal">{ddt.dataEmissione}</p>
               </div>
             </div>
+
+            {/* Mostra Data Consegna solo se presente */}
+            {ddt.dataConsegna && (
+              <div className="flex items-center gap-3 text-sm">
+                <div className="p-2 bg-white rounded-lg">
+                  <CheckCircle className="h-4 w-4 text-fradiavolo-green" />
+                </div>
+                <div>
+                  <span className="text-fradiavolo-charcoal-light text-xs uppercase tracking-wide">Data Consegna</span>
+                  <p className="font-semibold text-fradiavolo-green">{ddt.dataConsegna}</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* DDT Text */}
