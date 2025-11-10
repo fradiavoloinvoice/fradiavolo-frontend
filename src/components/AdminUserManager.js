@@ -11,18 +11,12 @@ import {
   Plus,
   Shield, 
   Store, 
-  Calendar,
   Search,
   ChevronDown,
   ChevronUp,
-  Archive,
   AlertCircle,
   Mail,
-  Key,
   Save,
-  Trash2,
-  UserCheck,
-  UserX,
   Activity
 } from 'lucide-react';
 
@@ -31,7 +25,6 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api
 const AdminUserManager = ({ user }) => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
-  const [stores, setStores] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -45,7 +38,6 @@ const AdminUserManager = ({ user }) => {
   });
 
   // UI States
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   
