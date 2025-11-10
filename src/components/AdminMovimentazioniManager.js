@@ -17,8 +17,7 @@ import {
   MapPin,
   FileText,
   Activity,
-  ChevronRight,
-  ChevronLeft
+  ChevronRight
 } from 'lucide-react';
 import negoziData from '../data/negozi.json';
 
@@ -147,7 +146,9 @@ const AdminMovimentazioniManager = ({ user }) => {
     }
   };
 
-  useEffect(() => { loadMovimentazioni(); loadStores(); }, [filters.originStore, filters.dateFrom, filters.dateTo]);
+ useEffect(() => { 
+  loadMovimentazioni(); 
+}, [filters.originStore, filters.dateFrom, filters.dateTo, loadMovimentazioni]);
 
   // Raggruppamento -----------------------------------------------------
   const buildGroups = (rows) => {
