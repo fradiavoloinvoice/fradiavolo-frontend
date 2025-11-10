@@ -164,7 +164,6 @@ const AdminMovimentazioniManager = ({ user }) => {
           codice_origine: r.codice_origine || '',
           destinazione: r.destinazione,
           codice_destinazione: r.codice_destinazione || '',
-          stato: r.stato || 'registrato',
           creato_da: r.creato_da || '',
           prodotti: []
         });
@@ -173,9 +172,6 @@ const AdminMovimentazioniManager = ({ user }) => {
       // timestamp/data più recente nel gruppo
       if (new Date(r.timestamp) > new Date(g.timestamp || 0)) g.timestamp = r.timestamp;
       if (new Date(r.data_movimento) > new Date(g.data_movimento || 0)) g.data_movimento = r.data_movimento;
-      // stato: priorità completato > in_transito > registrato
-      const order = { completato: 3, in_transito: 2, registrato: 1 };
-      if ((order[r.stato] || 1) > (order[g.stato] || 1)) g.stato = r.stato;
 
       g.prodotti.push({
         id: r.id,
@@ -447,10 +443,6 @@ const AdminMovimentazioniManager = ({ user }) => {
           <p className="text-sm text-fradiavolo-charcoal-light">Movimentazioni (DDT)</p>
         </div>
         <div className="bg-white rounded-xl p-4 border border-fradiavolo-cream-dark shadow-fradiavolo text-center">
-          <p className="text-2xl font-bold text-fradiavolo-green">{filteredGroups.filter(g => g.stato === 'completato').length}</p>
-          <p className="text-sm text-fradiavolo-charcoal-light">Completate</p>
-        </div>
-        <div className="bg-white rounded-xl p-4 border border-fradiavolo-cream-dark shadow-fradiavolo text-center">
           <p className="text-2xl font-bold text-fradiavolo-orange">{filteredGroups.filter(g => g.prodotti.some(p => (p.txt_content || '').trim() !== '')).length}</p>
           <p className="text-sm text-fradiavolo-charcoal-light">Con almeno un TXT</p>
         </div>
@@ -669,7 +661,6 @@ const AdminMovimentazioniManager = ({ user }) => {
                     <div className="flex justify-between"><span className="text-fradiavolo-charcoal-light">Data:</span><span className="font-medium text-fradiavolo-charcoal">{formatDate(selectedGroup.data_movimento)}</span></div>
                     <div className="flex justify-between"><span className="text-fradiavolo-charcoal-light">Origine:</span><span className="font-medium text-fradiavolo-charcoal">{selectedGroup.origine}</span></div>
                     <div className="flex justify-between"><span className="text-fradiavolo-charcoal-light">Destinazione:</span><span className="font-medium text-fradiavolo-charcoal">{selectedGroup.destinazione}</span></div>
-                    <div className="flex justify-between"><span className="text-fradiavolo-charcoal-light">Stato:</span><span className={getStatusBadge(selectedGroup.stato)}><span className="flex items-center space-x-1">{getStatusIcon(selectedGroup.stato)}<span className="capitalize">{selectedGroup.stato}</span></span></span></div>
                     <div className="flex justify-between"><span className="text-fradiavolo-charcoal-light">Registrato:</span><span className="font-medium text-fradiavolo-charcoal">{formatDateTime(selectedGroup.timestamp)}</span></div>
                   </div>
                 </div>
