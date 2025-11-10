@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   Filter, 
@@ -55,8 +55,8 @@ const AdminUserManager = ({ user }) => {
     role: 'operator'
   });
 
-  // Carica utenti
-  const loadUsers = async () => {
+  // Carica utenti (useCallback per evitare warning 'exhaustive-deps')
+  const loadUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       setError('');
@@ -82,7 +82,7 @@ const AdminUserManager = ({ user }) => {
 
       const data = await response.json();
       console.log('👥 Utenti caricati:', data.users);
-      setUsers(data.users);
+      setUsers(data.users || []);
 
     } catch (error) {
       console.error('❌ Errore caricamento utenti:', error);
@@ -91,25 +91,7 @@ const AdminUserManager = ({ user }) => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Carica lista negozi
-  const loadStores = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-
-      const response = await fetch(`${API_BASE_URL}/admin/stores`, {
-        headers: { 'Authorization': authHeader }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-      }
-    } catch (error) {
-      console.error('❌ Errore caricamento negozi:', error);
-    }
-  };
+  }, []);
 
   // Applica filtri locali
   useEffect(() => {
@@ -140,8 +122,8 @@ const AdminUserManager = ({ user }) => {
     // Ordinamento
     if (sortConfig.key) {
       filtered.sort((a, b) => {
-        let aVal = a[sortConfig.key] || '';
-        let bVal = b[sortConfig.key] || '';
+        let aVal = a[sortConfig.key] ?? '';
+        let bVal = b[sortConfig.key] ?? '';
 
         // Per ID numerico
         if (sortConfig.key === 'id') {
@@ -230,7 +212,6 @@ const AdminUserManager = ({ user }) => {
       // TODO: Implementare API per aggiornamento utente
       // const token = localStorage.getItem('token');
       // const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      // 
       // const response = await fetch(`${API_BASE_URL}/admin/users/${editingUser.id}`, {
       //   method: 'PUT',
       //   headers: {
@@ -240,7 +221,7 @@ const AdminUserManager = ({ user }) => {
       //   body: JSON.stringify(editingUser)
       // });
 
-      // Per ora simuliamo l'aggiornamento
+      // Simulazione update lato client
       setUsers(prev => prev.map(user => 
         user.id === editingUser.id ? editingUser : user
       ));
@@ -292,22 +273,12 @@ const AdminUserManager = ({ user }) => {
       }
 
       // TODO: Implementare API per creazione utente
-      // const token = localStorage.getItem('token');
-      // const authHeader = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      // 
-      // const response = await fetch(`${API_BASE_URL}/admin/users`, {
-      //   method: 'POST',
-      //   headers: {
-      //     'Authorization': authHeader,
-      //     'Content-Type': 'application/json'
-      //   },
-      //   body: JSON.stringify(newUser)
-      // });
 
-      // Per ora simuliamo la creazione
+      // Simulazione creazione lato client
+      const nextIdBase = users.length ? Math.max(...users.map(u => Number(u.id) || 0)) : 0;
       const newUserWithId = {
         ...newUser,
-        id: Math.max(...users.map(u => u.id)) + 1,
+        id: nextIdBase + 1,
         permissions: newUser.role === 'admin' ? ['all'] : []
       };
 
@@ -366,11 +337,10 @@ const AdminUserManager = ({ user }) => {
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  // Carica dati all'avvio
+  // Carica dati all'avvio (nessun warning)
   useEffect(() => {
     loadUsers();
-    loadStores();
-  }, []);
+  }, [loadUsers]);
 
   // Formattazione
   const getRoleIcon = (role) => {
