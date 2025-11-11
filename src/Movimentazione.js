@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
 import Select from 'react-select';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileText, Edit3, Save, X, Download, Eye, EyeOff } from 'lucide-react';
+import { FileText, Edit3, Save, X, Download, Eye, EyeOff, Trash2 } from 'lucide-react';
 import negoziData from './data/negozi.json';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
@@ -22,6 +21,8 @@ const toBaseUnit = (qty, uom /* , prodotto */) => {
   return Number(qty || 0);
 };
 
+const makeRiga = () => ({ prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false });
+
 // NOTE: questo componente si aspetta una prop "user" con almeno { email, puntoVendita }
 const Movimentazione = ({ user }) => {
   const puntoOrigine = user?.puntoVendita || 'Non definito';
@@ -30,9 +31,7 @@ const Movimentazione = ({ user }) => {
   const [destinazione, setDestinazione] = useState(null); // { value, label, codice, nome }
 
   // Stato righe da movimentare (per-prodotto)
-  const [movimenti, setMovimenti] = useState([
-    { prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false }
-  ]);
+  const [movimenti, setMovimenti] = useState([makeRiga()]);
 
   // Storico (raggruppato per DDT)
   const [storico, setStorico] = useState([]);
@@ -189,8 +188,23 @@ const Movimentazione = ({ user }) => {
   const aggiungiRiga = () => {
     setMovimenti([
       ...movimenti,
-      { prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false }
+      makeRiga()
     ]);
+  };
+
+  const rimuoviRiga = (index) => {
+    const r = movimenti[index];
+    const rigaVuota = !r?.prodotto && (r?.quantita === '' || r?.quantita === null);
+    if (!rigaVuota) {
+      const conferma = window.confirm('Eliminare questa riga?');
+      if (!conferma) return;
+    }
+    setMovimenti(prev => {
+      if (prev.length === 1) return [makeRiga()];
+      const nuovo = [...prev];
+      nuovo.splice(index, 1);
+      return nuovo.length ? nuovo : [makeRiga()];
+    });
   };
 
   const toggleTxtEditor = (index) => {
@@ -429,7 +443,7 @@ const Movimentazione = ({ user }) => {
       await loadStorico(); // aggiorna lista
 
       // reset form
-      setMovimenti([{ prodotto: null, quantita: '', txtContent: '', showTxtEditor: false, isEditingTxt: false }]);
+      setMovimenti([makeRiga()]);
       setDestinazione(null);
     } catch (err) {
       console.error('Errore generazione DDT:', err);
@@ -478,7 +492,7 @@ const Movimentazione = ({ user }) => {
       doc.line(20, 42, 190, 42);
 
       // Info trasporto
-      const puntoOrigineObj = negoziData.find(n => n.nome === entry.origine);
+      const puntoOrigineObj2 = negoziData.find(n => n.nome === entry.origine);
       const destObj = negoziData.find(n => n.nome === entry.destinazione);
 
       let yPos = 52;
@@ -491,8 +505,8 @@ const Movimentazione = ({ user }) => {
 
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(0, 0, 0);
-      doc.text(`${puntoOrigineObj?.nome || entry.origine} (${puntoOrigineObj?.codice || ''})`, 20, yPos + 6);
-      doc.text(puntoOrigineObj?.indirizzo || '', 20, yPos + 12);
+      doc.text(`${puntoOrigineObj2?.nome || entry.origine} (${puntoOrigineObj2?.codice || ''})`, 20, yPos + 6);
+      doc.text(puntoOrigineObj2?.indirizzo || '', 20, yPos + 12);
 
       // Destinatario (unico)
       doc.setFont('helvetica', 'bold');
@@ -696,7 +710,7 @@ const Movimentazione = ({ user }) => {
         {movimenti.map((mov, index) => (
           <div key={index} className="mb-4 sm:mb-6 p-3 sm:p-4 bg-fradiavolo-cream rounded-lg border border-fradiavolo-cream-dark mobile-list-item">
             {/* Riga principale */}
-            <div className="grid grid-cols-1 gap-4 mb-4 movimento-grid">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 movimento-grid">
               <div>
                 <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Prodotto</label>
                 <Select
@@ -740,6 +754,19 @@ const Movimentazione = ({ user }) => {
                 {mov.prodotto && (
                   <p className="text-xs text-fradiavolo-charcoal-light mt-1 mobile-text-xs">Unità: {mov.prodotto.uom}</p>
                 )}
+              </div>
+
+              {/* Pulsante elimina riga */}
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() => rimuoviRiga(index)}
+                  className="h-[44px] w-full sm:w-auto flex items-center justify-center space-x-2 px-3 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors"
+                  title="Elimina riga"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Elimina</span>
+                </button>
               </div>
             </div>
 
