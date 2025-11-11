@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   FileText, Calendar, MapPin, Package, CheckCircle,
-  Clock, Search, Filter, Eye, X, FileCheck, Store, Truck
+  Clock, Search, Filter, Eye, X, FileCheck, Store, Truck,
+  ArrowUpDown, ArrowUp, ArrowDown
 } from 'lucide-react';
 
 // 🔧 Normalizza la base URL: rimuove un eventuale "/api" e lo slash finale
@@ -14,11 +15,14 @@ const AdminInvoiceManager = () => {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // all | confirmed | pending
-  const [storeFilter, setStoreFilter] = useState('all'); // all | nome punto vendita
-  const [supplierFilter, setSupplierFilter] = useState('all'); // ✅ NUOVO: filtro fornitore
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [storeFilter, setStoreFilter] = useState('all');
+  const [supplierFilter, setSupplierFilter] = useState('all');
   const [selectedDDT, setSelectedDDT] = useState(null);
   const [showDDTModal, setShowDDTModal] = useState(false);
+  
+  // ✅ NUOVO: Stato per ordinamento
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' | 'desc'
 
   useEffect(() => {
     loadInvoices();
@@ -69,10 +73,12 @@ const AdminInvoiceManager = () => {
     setShowDDTModal(true);
   };
 
-  // ✅ Estrai lista unica di punti vendita per il filtro
+  // ✅ Toggle ordinamento
+  const toggleSortOrder = () => {
+    setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+  };
+
   const uniqueStores = [...new Set(invoices.map(inv => inv.puntoVendita))].filter(Boolean).sort();
-  
-  // ✅ Estrai lista unica di fornitori per il filtro
   const uniqueSuppliers = [...new Set(invoices.map(inv => inv.fornitore))].filter(Boolean).sort();
 
   // Filtri
@@ -92,12 +98,21 @@ const AdminInvoiceManager = () => {
       storeFilter === 'all' ||
       inv.puntoVendita === storeFilter;
 
-    // ✅ NUOVO: filtro fornitore
     const matchesSupplier =
       supplierFilter === 'all' ||
       inv.fornitore === supplierFilter;
 
     return matchesSearch && matchesStatus && matchesStore && matchesSupplier;
+  });
+
+  // ✅ Ordinamento per data
+  const sortedInvoices = [...filteredInvoices].sort((a, b) => {
+    const dateA = new Date(a.dataEmissione || '1970-01-01');
+    const dateB = new Date(b.dataEmissione || '1970-01-01');
+    
+    return sortOrder === 'desc' 
+      ? dateB - dateA  // Decrescente (più recente prima)
+      : dateA - dateB; // Crescente (più vecchia prima)
   });
 
   const stats = {
@@ -176,7 +191,7 @@ const AdminInvoiceManager = () => {
             </select>
           </div>
 
-          {/* ✅ NUOVO: Filtro Fornitore */}
+          {/* Filtro Fornitore */}
           <div className="flex items-center gap-2 bg-white rounded-xl border border-fradiavolo-cream-dark px-4 py-3 shadow-fradiavolo">
             <Truck className="h-5 w-5 text-fradiavolo-charcoal-light" />
             <select
@@ -265,8 +280,19 @@ const AdminInvoiceManager = () => {
                 <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
                   Numero
                 </th>
+                {/* ✅ Header Data con sorting */}
                 <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
-                  Data Emissione
+                  <button
+                    onClick={toggleSortOrder}
+                    className="inline-flex items-center gap-2 hover:text-fradiavolo-red transition-colors group"
+                  >
+                    <span>Data Emissione</span>
+                    {sortOrder === 'desc' ? (
+                      <ArrowDown className="h-4 w-4 text-fradiavolo-red" />
+                    ) : (
+                      <ArrowUp className="h-4 w-4 text-fradiavolo-red" />
+                    )}
+                  </button>
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
                   Fornitore
@@ -284,7 +310,7 @@ const AdminInvoiceManager = () => {
             </thead>
 
             <tbody className="bg-white divide-y divide-fradiavolo-cream">
-              {filteredInvoices.length === 0 ? (
+              {sortedInvoices.length === 0 ? (
                 <tr>
                   <td className="px-6 py-12 text-center text-sm text-fradiavolo-charcoal-light" colSpan={6}>
                     <div className="flex flex-col items-center gap-3">
@@ -295,7 +321,7 @@ const AdminInvoiceManager = () => {
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((invoice) => (
+                sortedInvoices.map((invoice) => (
                   <tr 
                     key={invoice.id || `${invoice.numeroFattura}-${invoice.puntoVendita}`}
                     className="hover:bg-fradiavolo-cream/30 transition-colors"
@@ -365,10 +391,14 @@ const AdminInvoiceManager = () => {
         </div>
 
         {/* Footer con conteggio risultati */}
-        {filteredInvoices.length > 0 && (
+        {sortedInvoices.length > 0 && (
           <div className="bg-fradiavolo-cream/30 px-6 py-4 border-t border-fradiavolo-cream-dark">
             <p className="text-sm text-fradiavolo-charcoal-light">
-              Visualizzate <span className="font-bold text-fradiavolo-charcoal">{filteredInvoices.length}</span> di <span className="font-bold text-fradiavolo-charcoal">{invoices.length}</span> fatture totali
+              Visualizzate <span className="font-bold text-fradiavolo-charcoal">{sortedInvoices.length}</span> di <span className="font-bold text-fradiavolo-charcoal">{invoices.length}</span> fatture totali
+              <span className="mx-2">•</span>
+              <span className="font-medium">
+                Ordinate per data {sortOrder === 'desc' ? 'decrescente ↓' : 'crescente ↑'}
+              </span>
             </p>
           </div>
         )}
@@ -449,7 +479,6 @@ const DDTModal = ({ ddt, onClose }) => (
               </div>
             </div>
 
-            {/* Mostra Data Consegna solo se presente */}
             {ddt.dataConsegna && (
               <div className="flex items-center gap-3 text-sm">
                 <div className="p-2 bg-white rounded-lg">
