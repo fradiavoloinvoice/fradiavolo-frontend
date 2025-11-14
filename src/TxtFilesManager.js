@@ -1,10 +1,9 @@
-// frontend/src/pages/admin/TxtFilesManager.js
+// frontend/src/pages/admin/TxtFilesManager.jsx - Con tracking modifiche
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck } from 'lucide-react';
+import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck, Clock, Users } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
-// ✅ SOLUZIONE: Import condizionale con fallback inline
 const negoziData = (() => {
   try {
     return require('../../data/negozi.json');
@@ -43,32 +42,19 @@ const negoziData = (() => {
   }
 })();
 
-/** 
- * Estrae il codice magazzino dal filename
- * Regola: codice magazzino è il numero PRIMA dell'estensione .txt
- * Esempi:
- * - "file_132.txt" → "132"
- * - "MOV_2025-11-06_117.txt" → "117"
- * - "FAT_12345_2025-11-06_FORNITORE_999.txt" → "999"
- */
 function extractWarehouseCode(filename) {
   try {
-    // Rimuovi estensione .txt (case insensitive)
     const withoutExt = filename.replace(/\.txt$/i, '');
-    
-    // Rimuovi suffisso _ERRORI se presente
     const cleaned = withoutExt.endsWith('_ERRORI') 
       ? withoutExt.slice(0, -'_ERRORI'.length) 
       : withoutExt;
     
-    // Cerca l'ultimo numero nel nome del file (dopo l'ultimo underscore)
     const match = cleaned.match(/_(\d+)$/);
     
     if (match && match[1]) {
       return match[1];
     }
     
-    // Fallback: cerca qualsiasi numero alla fine
     const fallbackMatch = cleaned.match(/(\d+)$/);
     if (fallbackMatch && fallbackMatch[1]) {
       return fallbackMatch[1];
@@ -81,28 +67,18 @@ function extractWarehouseCode(filename) {
   }
 }
 
-/**
- * ✅ VERSIONE ROBUSTA: Determina il tipo di documento dal nome del file
- * Gestisce:
- * - Spazi vs underscore
- * - Maiuscole/minuscole
- * - Variazioni di formattazione
- */
 function getDocumentType(filename) {
-  // Gestisce il caso in cui negoziData sia vuoto
   if (!Array.isArray(negoziData) || negoziData.length === 0) {
     console.warn('⚠️ negoziData vuoto, tutti i file saranno classificati come fatture');
     return 'fattura';
   }
 
-  // Normalizza il filename per il confronto
   const normalizedFilename = filename
-    .toLowerCase()                    // minuscolo
-    .replace(/_/g, ' ')               // underscore → spazio
-    .replace(/\s+/g, ' ')             // spazi multipli → singolo
+    .toLowerCase()
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
   
-  // Controlla se contiene uno dei nomi dei negozi
   const hasStoreName = negoziData.some(negozio => {
     if (!negozio || !negozio.nome) {
       return false;
@@ -115,7 +91,6 @@ function getDocumentType(filename) {
     
     const match = normalizedFilename.includes(storeName);
     
-    // Debug (opzionale, puoi rimuoverlo in produzione)
     if (match) {
       console.log(`✅ Movimentazione rilevata: "${filename}" contiene "${negozio.nome}"`);
     }
@@ -133,7 +108,6 @@ const TxtFilesManager = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Preview modal
   const [showPreview, setShowPreview] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState('');
@@ -141,11 +115,13 @@ const TxtFilesManager = () => {
   const [hasErrorsFlag, setHasErrorsFlag] = useState(false);
   const [errorDetails, setErrorDetails] = useState(null);
   
-  // Editing state
   const [isEditingContent, setIsEditingContent] = useState(false);
   const [editedContent, setEditedContent] = useState('');
 
-  // Filtri
+  // ✅ NUOVO: Stato per storico modifiche
+  const [storicoModifiche, setStoricoModifiche] = useState(null);
+  const [isModified, setIsModified] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('ALL');
   const [typeFilter, setTypeFilter] = useState('ALL');
@@ -189,7 +165,6 @@ const TxtFilesManager = () => {
 
   useEffect(() => {
     loadTxtFiles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openPreview = async (filename) => {
@@ -213,6 +188,10 @@ const TxtFilesManager = () => {
       const convErr = !!(data?.errorDetails?.item_noconv || data?.errorDetails?.errore_conversione);
       setHasErrorsFlag(!!data.hasErrors || convErr);
       setErrorDetails(data.errorDetails || null);
+
+      // ✅ NUOVO: Carica storico modifiche
+      setStoricoModifiche(data.storicoModifiche || null);
+      setIsModified(!!data.isModified);
 
       if (data.renamedTo && data.renamedTo !== filename) {
         setSelectedFile(data.renamedTo);
@@ -329,6 +308,8 @@ const TxtFilesManager = () => {
         setHasErrorsFlag(false);
         setErrorDetails(null);
         setIsEditingContent(false);
+        setStoricoModifiche(null);
+        setIsModified(false);
       }
     } catch (e) {
       console.error('Errore download:', e);
@@ -338,14 +319,6 @@ const TxtFilesManager = () => {
   };
 
   const rowDownload = (filename) => downloadTxtFile(filename, { closePreviewAfter: false });
-
-  const humanSize = (bytes) => {
-    if (bytes === 0 || bytes == null) return '0 B';
-    const k = 1024;
-    const sizes = ['B','KB','MB','GB','TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-  };
 
   const warehouseOptions = useMemo(() => {
     const set = new Set();
@@ -386,7 +359,6 @@ const TxtFilesManager = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-2xl font-bold text-fradiavolo-charcoal">File TXT</h2>
@@ -402,7 +374,6 @@ const TxtFilesManager = () => {
         </button>
       </div>
 
-      {/* Statistiche */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-4">
           <div className="flex items-center justify-between">
@@ -435,9 +406,7 @@ const TxtFilesManager = () => {
         </div>
       </div>
 
-      {/* Filtri */}
       <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-3 flex flex-col md:flex-row gap-3 md:items-center">
-        {/* Search */}
         <div className="flex-1">
           <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Cerca per nome file</label>
           <div className="relative">
@@ -452,7 +421,6 @@ const TxtFilesManager = () => {
           </div>
         </div>
 
-        {/* Filtro tipo documento */}
         <div className="w-full md:w-48">
           <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Tipo documento</label>
           <div className="relative">
@@ -469,7 +437,6 @@ const TxtFilesManager = () => {
           </div>
         </div>
 
-        {/* Warehouse filter */}
         <div className="w-full md:w-64">
           <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Filtra per codice magazzino</label>
           <div className="relative">
@@ -489,7 +456,6 @@ const TxtFilesManager = () => {
         </div>
       </div>
 
-      {/* Alert */}
       {error && (
         <div className="p-3 rounded-xl border bg-red-50 text-red-800 border-red-200">{error}</div>
       )}
@@ -497,12 +463,11 @@ const TxtFilesManager = () => {
         <div className="p-3 rounded-xl border bg-fradiavolo-green/10 text-fradiavolo-green-dark border-fradiavolo-green/30">{success}</div>
       )}
 
-      {/* Counter */}
       <div className="text-sm text-fradiavolo-charcoal-light">
         Mostrati {filteredFiles.length} di {txtFiles.length} file
       </div>
 
-      {/* Tabella */}
+      {/* ✅ TABELLA COMPATTATA: Rimosse colonne Dimensione e Modificato */}
       <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
@@ -511,22 +476,20 @@ const TxtFilesManager = () => {
                 <th className="px-4 py-3">Nome file</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Codice Magazzino PV</th>
-                <th className="px-4 py-3">Dimensione</th>
                 <th className="px-4 py-3">Creato</th>
-                <th className="px-4 py-3">Modificato</th>
-                <th className="px-4 py-3 text-right">Azioni</th>
+                <th className="px-4 py-3 text-center">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={7}>
+                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={5}>
                     Caricamento...
                   </td>
                 </tr>
               ) : filteredFiles.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={7}>
+                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={5}>
                     Nessun file TXT corrisponde ai filtri
                   </td>
                 </tr>
@@ -542,7 +505,7 @@ const TxtFilesManager = () => {
                       }
                       style={dangerRow ? { boxShadow: 'inset 0 0 0 1px rgba(220,38,38,0.25)' } : undefined}
                     >
-                      <td className="px-4 py-3 font-medium text-fradiavolo-charcoal flex items-center gap-2">
+                      <td className="px-4 py-3 font-medium text-fradiavolo-charcoal flex items-center gap-2 flex-wrap">
                         <FileText className={`h-4 w-4 ${dangerRow ? 'text-red-600' : 'text-fradiavolo-red'}`} />
                         <span className="truncate max-w-[46ch]" title={f.name}>{f.name}</span>
                         {dangerRow && (
@@ -553,7 +516,6 @@ const TxtFilesManager = () => {
                         )}
                       </td>
                       
-                      {/* Colonna tipo documento */}
                       <td className="px-4 py-3">
                         <span
                           className={
@@ -589,43 +551,33 @@ const TxtFilesManager = () => {
                           {f.warehouseCode !== '-' ? f.warehouseCode : 'N/A'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-fradiavolo-charcoal-light">{humanSize(f.size)}</td>
                       <td className="px-4 py-3 text-fradiavolo-charcoal-light">
                         {f.created ? new Date(f.created).toLocaleString('it-IT') : '-'}
                       </td>
-                      <td className="px-4 py-3 text-fradiavolo-charcoal-light">
-                        {f.modified ? new Date(f.modified).toLocaleString('it-IT') : '-'}
-                      </td>
+                      
+                      {/* ✅ AZIONI COMPATTATE: Icone inline invece di bottoni larghi */}
                       <td className="px-4 py-3">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-center gap-3">
                           <button
                             onClick={() => openPreview(f.name)}
-                            className={
-                              "inline-flex items-center gap-1 px-3 py-2 text-xs rounded-lg transition-colors " +
-                              (dangerRow
-                                ? "bg-red-700 text-white hover:bg-red-800"
-                                : "bg-fradiavolo-charcoal text-white hover:bg-fradiavolo-charcoal-light")
-                            }
-                            title="Visualizza e modifica"
+                            className="p-2 rounded-lg hover:bg-fradiavolo-cream transition-colors"
+                            title="Visualizza"
                           >
-                            <Eye className="h-3 w-3" />
-                            Visualizza
+                            <Eye className="h-4 w-4 text-fradiavolo-charcoal" />
                           </button>
                           <button
                             onClick={() => rowDownload(f.name)}
-                            className="inline-flex items-center gap-1 px-3 py-2 text-xs bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red-dark transition-colors"
-                            title="Scarica file"
+                            className="p-2 rounded-lg hover:bg-fradiavolo-cream transition-colors"
+                            title="Scarica"
                           >
-                            <Download className="h-3 w-3" />
-                            Scarica
+                            <Download className="h-4 w-4 text-fradiavolo-red" />
                           </button>
                           <button
                             onClick={() => deleteFile(f.name)}
-                            className="inline-flex items-center gap-1 px-3 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                            title="Elimina file (verrà creato un backup)"
+                            className="p-2 rounded-lg hover:bg-red-50 transition-colors"
+                            title="Elimina"
                           >
-                            <Trash2 className="h-3 w-3" />
-                            Elimina
+                            <Trash2 className="h-4 w-4 text-red-600" />
                           </button>
                         </div>
                       </td>
@@ -638,7 +590,7 @@ const TxtFilesManager = () => {
         </div>
       </div>
 
-      {/* Preview Modal */}
+      {/* ✅ MODALE PREVIEW AGGIORNATO con storico modifiche */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-fradiavolo-lg w-full max-w-4xl max-h-[90vh] border border-fradiavolo-cream-dark flex flex-col">
@@ -646,8 +598,15 @@ const TxtFilesManager = () => {
               <div className="flex items-center gap-2">
                 <FileText className={`h-5 w-5 ${hasErrorsFlag ? 'text-red-600' : 'text-fradiavolo-red'}`} />
                 <div>
-                  <h3 className="text-lg font-semibold text-fradiavolo-charcoal">
+                  <h3 className="text-lg font-semibold text-fradiavolo-charcoal flex items-center gap-2">
                     {selectedFile}
+                    {/* ✅ BADGE MODIFICATO */}
+                    {isModified && (
+                      <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                        <Clock className="h-3 w-3" />
+                        Modificato
+                      </span>
+                    )}
                   </h3>
                   {hasErrorsFlag && (
                     <p className="text-xs text-red-700 flex items-center gap-1">
@@ -666,6 +625,8 @@ const TxtFilesManager = () => {
                   setHasErrorsFlag(false);
                   setErrorDetails(null);
                   setIsEditingContent(false);
+                  setStoricoModifiche(null);
+                  setIsModified(false);
                 }}
                 className="p-2 rounded-lg hover:bg-fradiavolo-cream transition-colors"
               >
@@ -678,7 +639,6 @@ const TxtFilesManager = () => {
                 <div className="text-fradiavolo-charcoal-light text-sm">Caricamento contenuto...</div>
               ) : (
                 <>
-                  {/* ERRORE CONSEGNA */}
                   {errorDetails?.note_errori && (
                     <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-sm">
                       <div className="font-semibold text-red-700 mb-1 flex items-center gap-1">
@@ -689,7 +649,6 @@ const TxtFilesManager = () => {
                     </div>
                   )}
 
-                  {/* ERRORE DI CONVERSIONE */}
                   {(errorDetails?.item_noconv || errorDetails?.errore_conversione) && (
                     <div className="p-3 rounded-lg border border-orange-200 bg-orange-50 text-sm">
                       <div className="font-semibold text-orange-700 mb-1 flex items-center gap-1">
@@ -702,7 +661,51 @@ const TxtFilesManager = () => {
                     </div>
                   )}
 
-                  {/* Editor con possibilità di modifica */}
+                  {/* ✅ NUOVO: Box Storico Modifiche */}
+                  {isModified && storicoModifiche && storicoModifiche.length > 0 && (
+                    <div className="p-4 rounded-lg border border-blue-200 bg-blue-50">
+                      <div className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+                        <Clock className="h-5 w-5" />
+                        Storico Modifiche ({storicoModifiche.length})
+                      </div>
+                      <div className="space-y-3">
+                        {storicoModifiche.map((modifica, index) => (
+                          <div key={index} className="p-3 rounded-lg bg-white border border-blue-200">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-semibold text-blue-900">
+                                  Modifica #{storicoModifiche.length - index}
+                                </span>
+                              </div>
+                              <span className="text-xs text-blue-600">
+                                {modifica.data_modifica}
+                              </span>
+                            </div>
+                            <div className="space-y-1 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="text-fradiavolo-charcoal-light">Campo:</span>
+                                <span className="font-semibold text-fradiavolo-charcoal">{modifica.campo}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-fradiavolo-charcoal-light">Da:</span>
+                                <span className="text-red-700 line-through">"{modifica.valore_precedente}"</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-fradiavolo-charcoal-light">A:</span>
+                                <span className="text-green-700 font-semibold">"{modifica.valore_nuovo}"</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-fradiavolo-charcoal-light">Modificato da:</span>
+                                <span className="text-fradiavolo-charcoal">{modifica.modificato_da}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="bg-fradiavolo-cream rounded-lg border border-fradiavolo-cream-dark p-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-semibold text-fradiavolo-charcoal">
