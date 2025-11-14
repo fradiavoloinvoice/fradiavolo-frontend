@@ -1,35 +1,25 @@
 // frontend/src/pages/admin/TxtFilesManager.js
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck } from 'lucide-react';
+import negoziData from '../data/negozi.json'; // ✅ IMPORTA I DATI DEI NEGOZI
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 /** 
  * Estrae il codice magazzino dal filename
- * Regola: codice magazzino è il numero PRIMA dell'estensione .txt
- * Esempi:
- * - "file_132.txt" → "132"
- * - "MOV_2025-11-06_117.txt" → "117"
- * - "FAT_12345_2025-11-06_FORNITORE_999.txt" → "999"
  */
 function extractWarehouseCode(filename) {
   try {
-    // Rimuovi estensione .txt (case insensitive)
     const withoutExt = filename.replace(/\.txt$/i, '');
-    
-    // Rimuovi suffisso _ERRORI se presente
     const cleaned = withoutExt.endsWith('_ERRORI') 
       ? withoutExt.slice(0, -'_ERRORI'.length) 
       : withoutExt;
     
-    // Cerca l'ultimo numero nel nome del file (dopo l'ultimo underscore)
     const match = cleaned.match(/_(\d+)$/);
-    
     if (match && match[1]) {
       return match[1];
     }
     
-    // Fallback: cerca qualsiasi numero alla fine
     const fallbackMatch = cleaned.match(/(\d+)$/);
     if (fallbackMatch && fallbackMatch[1]) {
       return fallbackMatch[1];
@@ -43,14 +33,21 @@ function extractWarehouseCode(filename) {
 }
 
 /**
- * Determina il tipo di documento dal nome del file
- * - MOV_* = Movimentazione
- * - Tutto il resto = Fattura
+ * ✅ CORRETTO: Determina il tipo di documento dal nome del file
+ * - Se contiene un nome di punto vendita da negozi.json = Movimentazione
+ * - Altrimenti = Fattura
  */
 function getDocumentType(filename) {
-  if (filename.startsWith('MOV_')) {
+  // Controlla se il filename contiene uno dei nomi dei negozi
+  const hasStoreName = negoziData.some(negozio => {
+    const storeName = negozio.nome;
+    return filename.includes(storeName);
+  });
+  
+  if (hasStoreName) {
     return 'movimentazione';
   }
+  
   return 'fattura';
 }
 
@@ -76,7 +73,7 @@ const TxtFilesManager = () => {
   // Filtri
   const [searchTerm, setSearchTerm] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('ALL');
-  const [typeFilter, setTypeFilter] = useState('ALL'); // ✅ NUOVO: filtro tipo documento
+  const [typeFilter, setTypeFilter] = useState('ALL');
 
   const authHeader = () => {
     const token = localStorage.getItem('token') || '';
@@ -96,12 +93,15 @@ const TxtFilesManager = () => {
       const list = (Array.isArray(data.files) ? data.files : []).map(f => {
         const warehouseCode = extractWarehouseCode(f.name);
         const flaggedError = /_ERRORI\.txt$/i.test(f.name);
-        const docType = getDocumentType(f.name); // ✅ NUOVO
+        const docType = getDocumentType(f.name); // ✅ Usa la funzione corretta
+        
+        console.log(`📄 File: ${f.name} → Tipo: ${docType}`); // Debug
+        
         return { 
           ...f, 
           warehouseCode, 
           flaggedError,
-          docType // ✅ NUOVO
+          docType
         };
       });
       
@@ -125,7 +125,7 @@ const TxtFilesManager = () => {
       setError('');
       setSelectedFile(filename);
       setShowPreview(true);
-      setIsEditingContent(false); // ✅ Reset editing state
+      setIsEditingContent(false);
 
       const res = await fetch(`${API_BASE_URL}/txt-files/${encodeURIComponent(filename)}/content`, {
         headers: { Authorization: authHeader() }
@@ -135,13 +135,12 @@ const TxtFilesManager = () => {
       const data = await res.json();
       setFileContent(data.content || '');
       setOriginalFileContent(data.content || '');
-      setEditedContent(data.content || ''); // ✅ Inizializza contenuto editabile
+      setEditedContent(data.content || '');
       
       const convErr = !!(data?.errorDetails?.item_noconv || data?.errorDetails?.errore_conversione);
       setHasErrorsFlag(!!data.hasErrors || convErr);
       setErrorDetails(data.errorDetails || null);
 
-      // Se il server ha rinominato in _ERRORI, aggiorna UI
       if (data.renamedTo && data.renamedTo !== filename) {
         setSelectedFile(data.renamedTo);
         setTxtFiles(prev =>
@@ -158,7 +157,6 @@ const TxtFilesManager = () => {
     }
   };
 
-  // ✅ NUOVO: Salva modifiche al contenuto
   const saveEditedContent = async () => {
     try {
       setIsLoading(true);
@@ -191,7 +189,6 @@ const TxtFilesManager = () => {
     }
   };
 
-  // ✅ MODIFICATO: Elimina file
   const deleteFile = async (filename) => {
     if (!window.confirm(`Sei sicuro di voler eliminare "${filename}"?\n\nUn backup verrà creato automaticamente.`)) {
       return;
@@ -213,13 +210,11 @@ const TxtFilesManager = () => {
 
       const data = await res.json();
 
-      // Rimuovi dalla lista
       setTxtFiles(prev => prev.filter(f => f.name !== filename));
       
       setSuccess(`✅ File eliminato. ${data.backup_created ? 'Backup creato.' : ''}`);
       setTimeout(() => setSuccess(''), 3000);
 
-      // Se era aperto in preview, chiudi
       if (selectedFile === filename) {
         setShowPreview(false);
         setSelectedFile(null);
@@ -237,7 +232,6 @@ const TxtFilesManager = () => {
     try {
       setError('');
 
-      // Download
       const respDownload = await fetch(`${API_BASE_URL}/txt-files/${encodeURIComponent(filename)}`, {
         headers: { Authorization: authHeader() }
       });
@@ -282,7 +276,6 @@ const TxtFilesManager = () => {
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  // Opzioni filtro codice magazzino
   const warehouseOptions = useMemo(() => {
     const set = new Set();
     txtFiles.forEach(f => {
@@ -291,7 +284,6 @@ const TxtFilesManager = () => {
         set.add(code);
       }
     });
-    // Ordina numericamente
     const sorted = Array.from(set).sort((a, b) => {
       const numA = parseInt(a, 10);
       const numB = parseInt(b, 10);
@@ -300,7 +292,6 @@ const TxtFilesManager = () => {
     return ['ALL', ...sorted];
   }, [txtFiles]);
 
-  // ✅ NUOVO: Statistiche per tipo documento
   const typeStats = useMemo(() => {
     const stats = {
       movimentazione: 0,
@@ -312,13 +303,12 @@ const TxtFilesManager = () => {
     return stats;
   }, [txtFiles]);
 
-  // Applica filtri (search + warehouse + type)
   const filteredFiles = useMemo(() => {
     const q = (searchTerm || '').trim().toLowerCase();
     return txtFiles.filter(f => {
       const nameOk = !q || f.name.toLowerCase().includes(q);
       const warehouseOk = warehouseFilter === 'ALL' || f.warehouseCode === warehouseFilter;
-      const typeOk = typeFilter === 'ALL' || f.docType === typeFilter; // ✅ NUOVO
+      const typeOk = typeFilter === 'ALL' || f.docType === typeFilter;
       return nameOk && warehouseOk && typeOk;
     });
   }, [txtFiles, searchTerm, warehouseFilter, typeFilter]);
@@ -341,7 +331,7 @@ const TxtFilesManager = () => {
         </button>
       </div>
 
-      {/* ✅ NUOVO: Statistiche tipo documento */}
+      {/* Statistiche */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-4">
           <div className="flex items-center justify-between">
@@ -384,14 +374,14 @@ const TxtFilesManager = () => {
               type="text"
               value={searchTerm}
               onChange={(e)=>setSearchTerm(e.target.value)}
-              placeholder="Es: MOV_2025-11-06, 132.txt"
+              placeholder="Es: FDV Milano Isola, 5011.txt"
               className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
             />
             <Search className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
           </div>
         </div>
 
-        {/* ✅ NUOVO: Filtro tipo documento */}
+        {/* Filtro tipo documento */}
         <div className="w-full md:w-48">
           <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Tipo documento</label>
           <div className="relative">
@@ -448,7 +438,7 @@ const TxtFilesManager = () => {
             <thead className="bg-fradiavolo-cream">
               <tr className="text-left text-fradiavolo-charcoal">
                 <th className="px-4 py-3">Nome file</th>
-                <th className="px-4 py-3">Tipo</th> {/* ✅ NUOVO */}
+                <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Codice Magazzino PV</th>
                 <th className="px-4 py-3">Dimensione</th>
                 <th className="px-4 py-3">Creato</th>
@@ -492,7 +482,7 @@ const TxtFilesManager = () => {
                         )}
                       </td>
                       
-                      {/* ✅ NUOVO: Colonna tipo documento */}
+                      {/* Colonna tipo documento */}
                       <td className="px-4 py-3">
                         <span
                           className={
@@ -558,7 +548,6 @@ const TxtFilesManager = () => {
                             <Download className="h-3 w-3" />
                             Scarica
                           </button>
-                          {/* ✅ NUOVO: Bottone Elimina */}
                           <button
                             onClick={() => deleteFile(f.name)}
                             className="inline-flex items-center gap-1 px-3 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
@@ -578,7 +567,7 @@ const TxtFilesManager = () => {
         </div>
       </div>
 
-      {/* Preview Modal - MODIFICATO */}
+      {/* Preview Modal */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-fradiavolo-lg w-full max-w-4xl max-h-[90vh] border border-fradiavolo-cream-dark flex flex-col">
@@ -629,7 +618,7 @@ const TxtFilesManager = () => {
                     </div>
                   )}
 
-                  {/* ERRORE DI CONVERSIONE (colonna O) */}
+                  {/* ERRORE DI CONVERSIONE */}
                   {(errorDetails?.item_noconv || errorDetails?.errore_conversione) && (
                     <div className="p-3 rounded-lg border border-orange-200 bg-orange-50 text-sm">
                       <div className="font-semibold text-orange-700 mb-1 flex items-center gap-1">
@@ -642,7 +631,7 @@ const TxtFilesManager = () => {
                     </div>
                   )}
 
-                  {/* ✅ NUOVO: Editor con possibilità di modifica */}
+                  {/* Editor con possibilità di modifica */}
                   <div className="bg-fradiavolo-cream rounded-lg border border-fradiavolo-cream-dark p-3">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-semibold text-fradiavolo-charcoal">
@@ -720,7 +709,6 @@ const TxtFilesManager = () => {
                 <Download className="h-4 w-4" />
                 Scarica
               </button>
-              {/* ✅ NUOVO: Elimina dal modal */}
               <button
                 onClick={() => {
                   deleteFile(selectedFile);
