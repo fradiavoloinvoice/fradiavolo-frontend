@@ -669,7 +669,8 @@ const TxtFilesManager = () => {
                         Storico Modifiche ({storicoModifiche.length})
                       </div>
                       <div className="space-y-3">
-                        {storicoModifiche.map((modifica, index) => (
+                        {/* ✅ Ordina per timestamp decrescente (più recente prima) */}
+                        {[...storicoModifiche].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map((modifica, index) => (
                           <div key={index} className="p-3 rounded-lg bg-white border border-blue-200">
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2">
