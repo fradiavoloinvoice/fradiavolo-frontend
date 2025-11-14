@@ -1,6 +1,6 @@
 // frontend/src/pages/admin/TxtFilesManager.js
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle } from 'lucide-react';
+import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
@@ -42,6 +42,18 @@ function extractWarehouseCode(filename) {
   }
 }
 
+/**
+ * Determina il tipo di documento dal nome del file
+ * - MOV_* = Movimentazione
+ * - Tutto il resto = Fattura
+ */
+function getDocumentType(filename) {
+  if (filename.startsWith('MOV_')) {
+    return 'movimentazione';
+  }
+  return 'fattura';
+}
+
 const TxtFilesManager = () => {
   const [txtFiles, setTxtFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -56,10 +68,15 @@ const TxtFilesManager = () => {
   const [originalFileContent, setOriginalFileContent] = useState('');
   const [hasErrorsFlag, setHasErrorsFlag] = useState(false);
   const [errorDetails, setErrorDetails] = useState(null);
+  
+  // Editing state
+  const [isEditingContent, setIsEditingContent] = useState(false);
+  const [editedContent, setEditedContent] = useState('');
 
   // Filtri
   const [searchTerm, setSearchTerm] = useState('');
   const [warehouseFilter, setWarehouseFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL'); // ✅ NUOVO: filtro tipo documento
 
   const authHeader = () => {
     const token = localStorage.getItem('token') || '';
@@ -79,10 +96,12 @@ const TxtFilesManager = () => {
       const list = (Array.isArray(data.files) ? data.files : []).map(f => {
         const warehouseCode = extractWarehouseCode(f.name);
         const flaggedError = /_ERRORI\.txt$/i.test(f.name);
+        const docType = getDocumentType(f.name); // ✅ NUOVO
         return { 
           ...f, 
           warehouseCode, 
-          flaggedError 
+          flaggedError,
+          docType // ✅ NUOVO
         };
       });
       
@@ -106,6 +125,7 @@ const TxtFilesManager = () => {
       setError('');
       setSelectedFile(filename);
       setShowPreview(true);
+      setIsEditingContent(false); // ✅ Reset editing state
 
       const res = await fetch(`${API_BASE_URL}/txt-files/${encodeURIComponent(filename)}/content`, {
         headers: { Authorization: authHeader() }
@@ -115,6 +135,7 @@ const TxtFilesManager = () => {
       const data = await res.json();
       setFileContent(data.content || '');
       setOriginalFileContent(data.content || '');
+      setEditedContent(data.content || ''); // ✅ Inizializza contenuto editabile
       
       const convErr = !!(data?.errorDetails?.item_noconv || data?.errorDetails?.errore_conversione);
       setHasErrorsFlag(!!data.hasErrors || convErr);
@@ -134,6 +155,81 @@ const TxtFilesManager = () => {
       setSelectedFile(null);
     } finally {
       setIsLoadingPreview(false);
+    }
+  };
+
+  // ✅ NUOVO: Salva modifiche al contenuto
+  const saveEditedContent = async () => {
+    try {
+      setIsLoading(true);
+      setError('');
+
+      const res = await fetch(`${API_BASE_URL}/txt-files/${encodeURIComponent(selectedFile)}/content`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': authHeader(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: editedContent })
+      });
+
+      if (!res.ok) throw new Error(`Errore ${res.status}`);
+
+      const data = await res.json();
+      
+      setFileContent(editedContent);
+      setOriginalFileContent(editedContent);
+      setIsEditingContent(false);
+      setSuccess('✅ File modificato con successo! Backup creato.');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (e) {
+      console.error('Errore salvataggio:', e);
+      setError('Impossibile salvare le modifiche: ' + e.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ✅ MODIFICATO: Elimina file
+  const deleteFile = async (filename) => {
+    if (!window.confirm(`Sei sicuro di voler eliminare "${filename}"?\n\nUn backup verrà creato automaticamente.`)) {
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError('');
+
+      const res = await fetch(`${API_BASE_URL}/txt-files/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        headers: { Authorization: authHeader() }
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Errore ${res.status}: ${text}`);
+      }
+
+      const data = await res.json();
+
+      // Rimuovi dalla lista
+      setTxtFiles(prev => prev.filter(f => f.name !== filename));
+      
+      setSuccess(`✅ File eliminato. ${data.backup_created ? 'Backup creato.' : ''}`);
+      setTimeout(() => setSuccess(''), 3000);
+
+      // Se era aperto in preview, chiudi
+      if (selectedFile === filename) {
+        setShowPreview(false);
+        setSelectedFile(null);
+      }
+    } catch (e) {
+      console.error('Errore eliminazione:', e);
+      setError('Impossibile eliminare il file: ' + e.message);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -157,19 +253,7 @@ const TxtFilesManager = () => {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      // Delete server-side
-      const respDelete = await fetch(`${API_BASE_URL}/txt-files/${encodeURIComponent(filename)}`, {
-        method: 'DELETE',
-        headers: { Authorization: authHeader() }
-      });
-      if (!respDelete.ok) {
-        const t = await respDelete.text().catch(() => '');
-        throw new Error(`Impossibile eliminare il file dopo il download: ${respDelete.status} ${t}`);
-      }
-
-      // Aggiorna UI
-      setTxtFiles(prev => prev.filter(f => f.name !== filename));
-      setSuccess(`File "${filename}" scaricato ed eliminato.`);
+      setSuccess(`File "${filename}" scaricato.`);
       setTimeout(() => setSuccess(''), 3000);
 
       if (closePreviewAfter) {
@@ -179,9 +263,10 @@ const TxtFilesManager = () => {
         setOriginalFileContent('');
         setHasErrorsFlag(false);
         setErrorDetails(null);
+        setIsEditingContent(false);
       }
     } catch (e) {
-      console.error('Errore download/eliminazione:', e);
+      console.error('Errore download:', e);
       setError('Errore: ' + e.message);
       setTimeout(() => setError(''), 5000);
     }
@@ -215,15 +300,28 @@ const TxtFilesManager = () => {
     return ['ALL', ...sorted];
   }, [txtFiles]);
 
-  // Applica filtri (search + warehouse)
+  // ✅ NUOVO: Statistiche per tipo documento
+  const typeStats = useMemo(() => {
+    const stats = {
+      movimentazione: 0,
+      fattura: 0
+    };
+    txtFiles.forEach(f => {
+      stats[f.docType]++;
+    });
+    return stats;
+  }, [txtFiles]);
+
+  // Applica filtri (search + warehouse + type)
   const filteredFiles = useMemo(() => {
     const q = (searchTerm || '').trim().toLowerCase();
     return txtFiles.filter(f => {
       const nameOk = !q || f.name.toLowerCase().includes(q);
       const warehouseOk = warehouseFilter === 'ALL' || f.warehouseCode === warehouseFilter;
-      return nameOk && warehouseOk;
+      const typeOk = typeFilter === 'ALL' || f.docType === typeFilter; // ✅ NUOVO
+      return nameOk && warehouseOk && typeOk;
     });
-  }, [txtFiles, searchTerm, warehouseFilter]);
+  }, [txtFiles, searchTerm, warehouseFilter, typeFilter]);
 
   return (
     <div className="space-y-6">
@@ -243,6 +341,39 @@ const TxtFilesManager = () => {
         </button>
       </div>
 
+      {/* ✅ NUOVO: Statistiche tipo documento */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-fradiavolo-charcoal-light">Totale File</p>
+              <p className="text-2xl font-bold text-fradiavolo-charcoal">{txtFiles.length}</p>
+            </div>
+            <FileText className="h-8 w-8 text-fradiavolo-red" />
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-fradiavolo-charcoal-light">Fatture Fornitori</p>
+              <p className="text-2xl font-bold text-fradiavolo-charcoal">{typeStats.fattura}</p>
+            </div>
+            <Package className="h-8 w-8 text-fradiavolo-orange" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-fradiavolo-charcoal-light">Movimentazioni</p>
+              <p className="text-2xl font-bold text-fradiavolo-charcoal">{typeStats.movimentazione}</p>
+            </div>
+            <Truck className="h-8 w-8 text-fradiavolo-green" />
+          </div>
+        </div>
+      </div>
+
       {/* Filtri */}
       <div className="bg-white rounded-xl shadow-fradiavolo border border-fradiavolo-cream-dark p-3 flex flex-col md:flex-row gap-3 md:items-center">
         {/* Search */}
@@ -257,6 +388,23 @@ const TxtFilesManager = () => {
               className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
             />
             <Search className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
+          </div>
+        </div>
+
+        {/* ✅ NUOVO: Filtro tipo documento */}
+        <div className="w-full md:w-48">
+          <label className="block text-xs font-semibold text-fradiavolo-charcoal mb-1">Tipo documento</label>
+          <div className="relative">
+            <select
+              value={typeFilter}
+              onChange={(e)=>setTypeFilter(e.target.value)}
+              className="w-full border border-fradiavolo-cream-dark p-3 pr-9 rounded-xl bg-white focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
+            >
+              <option value="ALL">Tutti i tipi</option>
+              <option value="fattura">Fatture Fornitori</option>
+              <option value="movimentazione">Movimentazioni</option>
+            </select>
+            <Filter className="h-4 w-4 text-fradiavolo-charcoal-light absolute right-3 top-1/2 -translate-y-1/2" />
           </div>
         </div>
 
@@ -300,6 +448,7 @@ const TxtFilesManager = () => {
             <thead className="bg-fradiavolo-cream">
               <tr className="text-left text-fradiavolo-charcoal">
                 <th className="px-4 py-3">Nome file</th>
+                <th className="px-4 py-3">Tipo</th> {/* ✅ NUOVO */}
                 <th className="px-4 py-3">Codice Magazzino PV</th>
                 <th className="px-4 py-3">Dimensione</th>
                 <th className="px-4 py-3">Creato</th>
@@ -310,13 +459,13 @@ const TxtFilesManager = () => {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={6}>
+                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={7}>
                     Caricamento...
                   </td>
                 </tr>
               ) : filteredFiles.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={6}>
+                  <td className="px-4 py-6 text-center text-fradiavolo-charcoal-light" colSpan={7}>
                     Nessun file TXT corrisponde ai filtri
                   </td>
                 </tr>
@@ -342,6 +491,31 @@ const TxtFilesManager = () => {
                           </span>
                         )}
                       </td>
+                      
+                      {/* ✅ NUOVO: Colonna tipo documento */}
+                      <td className="px-4 py-3">
+                        <span
+                          className={
+                            "inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold border " +
+                            (f.docType === 'movimentazione'
+                              ? "bg-fradiavolo-green/10 text-fradiavolo-green border-fradiavolo-green/30"
+                              : "bg-fradiavolo-orange/10 text-fradiavolo-orange border-fradiavolo-orange/30")
+                          }
+                        >
+                          {f.docType === 'movimentazione' ? (
+                            <>
+                              <Truck className="h-3 w-3" />
+                              Movimentazione
+                            </>
+                          ) : (
+                            <>
+                              <Package className="h-3 w-3" />
+                              Fattura
+                            </>
+                          )}
+                        </span>
+                      </td>
+
                       <td className="px-4 py-3">
                         <span
                           className={
@@ -371,6 +545,7 @@ const TxtFilesManager = () => {
                                 ? "bg-red-700 text-white hover:bg-red-800"
                                 : "bg-fradiavolo-charcoal text-white hover:bg-fradiavolo-charcoal-light")
                             }
+                            title="Visualizza e modifica"
                           >
                             <Eye className="h-3 w-3" />
                             Visualizza
@@ -378,9 +553,19 @@ const TxtFilesManager = () => {
                           <button
                             onClick={() => rowDownload(f.name)}
                             className="inline-flex items-center gap-1 px-3 py-2 text-xs bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red-dark transition-colors"
+                            title="Scarica file"
                           >
                             <Download className="h-3 w-3" />
                             Scarica
+                          </button>
+                          {/* ✅ NUOVO: Bottone Elimina */}
+                          <button
+                            onClick={() => deleteFile(f.name)}
+                            className="inline-flex items-center gap-1 px-3 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                            title="Elimina file (verrà creato un backup)"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Elimina
                           </button>
                         </div>
                       </td>
@@ -393,11 +578,11 @@ const TxtFilesManager = () => {
         </div>
       </div>
 
-      {/* Preview Modal */}
+      {/* Preview Modal - MODIFICATO */}
       {showPreview && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-fradiavolo-lg w-full max-w-3xl border border-fradiavolo-cream-dark">
-            <div className="flex items-center justify-between p-4 border-b border-fradiavolo-cream-dark">
+          <div className="bg-white rounded-2xl shadow-fradiavolo-lg w-full max-w-4xl max-h-[90vh] border border-fradiavolo-cream-dark flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-fradiavolo-cream-dark flex-shrink-0">
               <div className="flex items-center gap-2">
                 <FileText className={`h-5 w-5 ${hasErrorsFlag ? 'text-red-600' : 'text-fradiavolo-red'}`} />
                 <div>
@@ -420,6 +605,7 @@ const TxtFilesManager = () => {
                   setOriginalFileContent('');
                   setHasErrorsFlag(false);
                   setErrorDetails(null);
+                  setIsEditingContent(false);
                 }}
                 className="p-2 rounded-lg hover:bg-fradiavolo-cream transition-colors"
               >
@@ -427,7 +613,7 @@ const TxtFilesManager = () => {
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-3 overflow-y-auto flex-1">
               {isLoadingPreview ? (
                 <div className="text-fradiavolo-charcoal-light text-sm">Caricamento contenuto...</div>
               ) : (
@@ -456,16 +642,71 @@ const TxtFilesManager = () => {
                     </div>
                   )}
 
+                  {/* ✅ NUOVO: Editor con possibilità di modifica */}
                   <div className="bg-fradiavolo-cream rounded-lg border border-fradiavolo-cream-dark p-3">
-                    <pre className="text-xs text-fradiavolo-charcoal font-mono whitespace-pre-wrap max-h-72 overflow-y-auto">
-                      {fileContent || '(file vuoto)'}
-                    </pre>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-semibold text-fradiavolo-charcoal">
+                        Contenuto file
+                      </span>
+                      {!isEditingContent && (
+                        <button
+                          onClick={() => {
+                            setIsEditingContent(true);
+                            setEditedContent(fileContent);
+                          }}
+                          className="inline-flex items-center gap-1 px-3 py-1 text-xs bg-fradiavolo-orange text-white rounded-lg hover:bg-fradiavolo-gold transition-colors"
+                        >
+                          <Edit3 className="h-3 w-3" />
+                          Modifica
+                        </button>
+                      )}
+                    </div>
+
+                    {isEditingContent ? (
+                      <div className="space-y-2">
+                        <textarea
+                          value={editedContent}
+                          onChange={(e) => setEditedContent(e.target.value)}
+                          className="w-full text-xs text-fradiavolo-charcoal font-mono bg-white p-3 rounded-lg border border-fradiavolo-cream-dark focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors min-h-[400px]"
+                          placeholder="Contenuto del file..."
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={saveEditedContent}
+                            disabled={isLoading || editedContent === originalFileContent}
+                            className="inline-flex items-center gap-1 px-4 py-2 text-sm bg-fradiavolo-green text-white rounded-lg hover:bg-fradiavolo-green-dark transition-colors disabled:opacity-50"
+                          >
+                            <Save className="h-4 w-4" />
+                            Salva Modifiche
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsEditingContent(false);
+                              setEditedContent(fileContent);
+                            }}
+                            className="inline-flex items-center gap-1 px-4 py-2 text-sm bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal-light transition-colors"
+                          >
+                            <X className="h-4 w-4" />
+                            Annulla
+                          </button>
+                        </div>
+                        {editedContent !== originalFileContent && (
+                          <p className="text-xs text-fradiavolo-orange">
+                            ⚠️ Hai modifiche non salvate
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <pre className="text-xs text-fradiavolo-charcoal font-mono whitespace-pre-wrap bg-white p-3 rounded-lg border border-fradiavolo-cream-dark max-h-96 overflow-y-auto">
+                        {fileContent || '(file vuoto)'}
+                      </pre>
+                    )}
                   </div>
                 </>
               )}
             </div>
 
-            <div className="p-4 border-t border-fradiavolo-cream-dark flex items-center justify-end gap-2">
+            <div className="p-4 border-t border-fradiavolo-cream-dark flex items-center justify-end gap-2 flex-shrink-0">
               <button
                 onClick={() => setShowPreview(false)}
                 className="px-4 py-2 rounded-lg bg-fradiavolo-charcoal text-white hover:bg-fradiavolo-charcoal-light transition-colors"
@@ -473,11 +714,21 @@ const TxtFilesManager = () => {
                 Chiudi
               </button>
               <button
-                onClick={() => downloadTxtFile(selectedFile, { closePreviewAfter: true })}
+                onClick={() => downloadTxtFile(selectedFile, { closePreviewAfter: false })}
                 className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-fradiavolo-red text-white hover:bg-fradiavolo-red-dark transition-colors"
               >
                 <Download className="h-4 w-4" />
-                Scarica & Elimina
+                Scarica
+              </button>
+              {/* ✅ NUOVO: Elimina dal modal */}
+              <button
+                onClick={() => {
+                  deleteFile(selectedFile);
+                }}
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                <Trash2 className="h-4 w-4" />
+                Elimina
               </button>
             </div>
           </div>
