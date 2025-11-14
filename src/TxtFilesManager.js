@@ -1,9 +1,47 @@
 // frontend/src/pages/admin/TxtFilesManager.js
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck } from 'lucide-react';
-import negoziData from '../../data/negozi.json';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+
+// ✅ SOLUZIONE: Import condizionale con fallback inline
+const negoziData = (() => {
+  try {
+    return require('../../data/negozi.json');
+  } catch (e) {
+    console.warn('⚠️ negozi.json non caricato, usando fallback');
+    return [
+      { nome: "FDV Office", codice: "0" },
+      { nome: "FDV Genova Castello", codice: "101" },
+      { nome: "FDV Bologna S.Stefano", codice: "106" },
+      { nome: "FDV Roma Parioli", codice: "107" },
+      { nome: "FDV Novara", codice: "112" },
+      { nome: "FDV Milano Sempione", codice: "113" },
+      { nome: "FDV Torino Carlina", codice: "114" },
+      { nome: "FDV Torino GM", codice: "117" },
+      { nome: "FDV Varese", codice: "119" },
+      { nome: "FDV Milano Isola", codice: "120" },
+      { nome: "FDV Milano Citylife", codice: "121" },
+      { nome: "FDV Arese", codice: "122" },
+      { nome: "FDV Torino IV Marzo", codice: "123" },
+      { nome: "FDV Parma", codice: "124" },
+      { nome: "FDV Milano Bicocca", codice: "125" },
+      { nome: "FDV Monza", codice: "126" },
+      { nome: "FDV Milano Premuda", codice: "127" },
+      { nome: "FDV Genova Mare", codice: "128" },
+      { nome: "FDV Alessandria", codice: "129" },
+      { nome: "FDV Torino Vanchiglia", codice: "130" },
+      { nome: "FDV Milano Porta Venezia", codice: "131" },
+      { nome: "FDV Modena", codice: "132" },
+      { nome: "FDV Roma Ostiense", codice: "133" },
+      { nome: "FDV Asti", codice: "134" },
+      { nome: "FDV Brescia Centro", codice: "135" },
+      { nome: "FDV Torino San Salvario", codice: "136" },
+      { nome: "FDV Rimini", codice: "137" },
+      { nome: "FDV Roma Trastevere", codice: "138" }
+    ];
+  }
+})();
 
 /** 
  * Estrae il codice magazzino dal filename
@@ -51,6 +89,12 @@ function extractWarehouseCode(filename) {
  * - Variazioni di formattazione
  */
 function getDocumentType(filename) {
+  // Gestisce il caso in cui negoziData sia vuoto
+  if (!Array.isArray(negoziData) || negoziData.length === 0) {
+    console.warn('⚠️ negoziData vuoto, tutti i file saranno classificati come fatture');
+    return 'fattura';
+  }
+
   // Normalizza il filename per il confronto
   const normalizedFilename = filename
     .toLowerCase()                    // minuscolo
@@ -60,6 +104,10 @@ function getDocumentType(filename) {
   
   // Controlla se contiene uno dei nomi dei negozi
   const hasStoreName = negoziData.some(negozio => {
+    if (!negozio || !negozio.nome) {
+      return false;
+    }
+    
     const storeName = negozio.nome
       .toLowerCase()
       .replace(/\s+/g, ' ')
@@ -67,7 +115,7 @@ function getDocumentType(filename) {
     
     const match = normalizedFilename.includes(storeName);
     
-    // Debug (rimuovi in produzione se non serve)
+    // Debug (opzionale, puoi rimuoverlo in produzione)
     if (match) {
       console.log(`✅ Movimentazione rilevata: "${filename}" contiene "${negozio.nome}"`);
     }
