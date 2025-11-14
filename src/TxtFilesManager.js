@@ -1,25 +1,36 @@
 // frontend/src/pages/admin/TxtFilesManager.js
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck } from 'lucide-react';
-import negoziData from './data/negozi.json'; // ✅ IMPORTA I DATI DEI NEGOZI
+import negoziData from '../../data/negozi.json';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 /** 
  * Estrae il codice magazzino dal filename
+ * Regola: codice magazzino è il numero PRIMA dell'estensione .txt
+ * Esempi:
+ * - "file_132.txt" → "132"
+ * - "MOV_2025-11-06_117.txt" → "117"
+ * - "FAT_12345_2025-11-06_FORNITORE_999.txt" → "999"
  */
 function extractWarehouseCode(filename) {
   try {
+    // Rimuovi estensione .txt (case insensitive)
     const withoutExt = filename.replace(/\.txt$/i, '');
+    
+    // Rimuovi suffisso _ERRORI se presente
     const cleaned = withoutExt.endsWith('_ERRORI') 
       ? withoutExt.slice(0, -'_ERRORI'.length) 
       : withoutExt;
     
+    // Cerca l'ultimo numero nel nome del file (dopo l'ultimo underscore)
     const match = cleaned.match(/_(\d+)$/);
+    
     if (match && match[1]) {
       return match[1];
     }
     
+    // Fallback: cerca qualsiasi numero alla fine
     const fallbackMatch = cleaned.match(/(\d+)$/);
     if (fallbackMatch && fallbackMatch[1]) {
       return fallbackMatch[1];
@@ -33,22 +44,38 @@ function extractWarehouseCode(filename) {
 }
 
 /**
- * ✅ CORRETTO: Determina il tipo di documento dal nome del file
- * - Se contiene un nome di punto vendita da negozi.json = Movimentazione
- * - Altrimenti = Fattura
+ * ✅ VERSIONE ROBUSTA: Determina il tipo di documento dal nome del file
+ * Gestisce:
+ * - Spazi vs underscore
+ * - Maiuscole/minuscole
+ * - Variazioni di formattazione
  */
 function getDocumentType(filename) {
-  // Controlla se il filename contiene uno dei nomi dei negozi
+  // Normalizza il filename per il confronto
+  const normalizedFilename = filename
+    .toLowerCase()                    // minuscolo
+    .replace(/_/g, ' ')               // underscore → spazio
+    .replace(/\s+/g, ' ')             // spazi multipli → singolo
+    .trim();
+  
+  // Controlla se contiene uno dei nomi dei negozi
   const hasStoreName = negoziData.some(negozio => {
-    const storeName = negozio.nome;
-    return filename.includes(storeName);
+    const storeName = negozio.nome
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const match = normalizedFilename.includes(storeName);
+    
+    // Debug (rimuovi in produzione se non serve)
+    if (match) {
+      console.log(`✅ Movimentazione rilevata: "${filename}" contiene "${negozio.nome}"`);
+    }
+    
+    return match;
   });
   
-  if (hasStoreName) {
-    return 'movimentazione';
-  }
-  
-  return 'fattura';
+  return hasStoreName ? 'movimentazione' : 'fattura';
 }
 
 const TxtFilesManager = () => {
@@ -93,9 +120,7 @@ const TxtFilesManager = () => {
       const list = (Array.isArray(data.files) ? data.files : []).map(f => {
         const warehouseCode = extractWarehouseCode(f.name);
         const flaggedError = /_ERRORI\.txt$/i.test(f.name);
-        const docType = getDocumentType(f.name); // ✅ Usa la funzione corretta
-        
-        console.log(`📄 File: ${f.name} → Tipo: ${docType}`); // Debug
+        const docType = getDocumentType(f.name);
         
         return { 
           ...f, 
@@ -173,8 +198,6 @@ const TxtFilesManager = () => {
 
       if (!res.ok) throw new Error(`Errore ${res.status}`);
 
-      const data = await res.json();
-      
       setFileContent(editedContent);
       setOriginalFileContent(editedContent);
       setIsEditingContent(false);
