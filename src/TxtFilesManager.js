@@ -1,7 +1,7 @@
 // frontend/src/pages/admin/TxtFilesManager.js
 import React, { useEffect, useMemo, useState } from 'react';
 import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck } from 'lucide-react';
-import negoziData from '../data/negozi.json'; // ✅ IMPORTA I DATI DEI NEGOZI
+import negoziData from './data/negozi.json'; // ✅ IMPORTA I DATI DEI NEGOZI
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
