@@ -764,9 +764,9 @@ const InvoiceProcessorApp = () => {
                               {renderErrorButton(invoice)}
 
                               {invoice.file_url && (
-                                
-                                  href={invoice.file_url}
-                                  target="_blank"
+  
+    href={invoice.file_url}
+    target="_blank"
                                   rel="noopener noreferrer"
                                   className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-charcoal hover:bg-fradiavolo-charcoal-light text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
                                 >
@@ -876,9 +876,9 @@ const InvoiceProcessorApp = () => {
                               <span>Modifica</span>
                             </button>
 
-                            {invoice.file_url && (
-                              
-                                href={invoice.file_url}
+                           {invoice.file_url && (
+  
+    href={invoice.file_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-red hover:bg-fradiavolo-red/90 text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
@@ -1051,9 +1051,9 @@ const InvoiceProcessorApp = () => {
 
                               {renderErrorButton(invoice)}
 
-                              {invoice.file_url && (
-                                
-                                  href={invoice.file_url}
+                             {invoice.file_url && (
+  
+    href={invoice.file_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-charcoal hover:bg-fradiavolo-charcoal-light text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
@@ -1166,8 +1166,8 @@ const InvoiceProcessorApp = () => {
                             </button>
 
                             {invoice.file_url && (
-                              
-                                href={invoice.file_url}
+  
+    href={invoice.file_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-red hover:bg-fradiavolo-red/90 text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
