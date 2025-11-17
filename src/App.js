@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { FileText, Eye, Edit3, Download, CheckCircle, AlertCircle, LogOut, User, Users, Clock, Package, MessageCircle, Save, X, RefreshCw, Truck, HardDrive } from 'lucide-react';
+/* eslint-disable react-hooks/exhaustive-deps */
+import React, { useState, useEffect } from 'react';
+import { FileText, Eye, Edit3, CheckCircle, AlertCircle, LogOut, User, Clock, Package, Save, X, RefreshCw, Truck } from 'lucide-react';
 import Movimentazione from './Movimentazione';
 import AdminDashboard from './components/AdminDashboard';
 import AdminInvoiceManager from './components/AdminInvoiceManager';
@@ -10,7 +11,7 @@ import AdminSidebarLayout from './components/AdminSidebarLayout';
 import negoziData from './data/negozi.json';
 
 // ==========================================
-// ✅ NUOVO: Unità di misura supportate
+// ✅ Unità di misura supportate
 // ==========================================
 const UNITA_MISURA = [
   { value: 'KG', label: 'KG - Kilogrammi' },
@@ -48,13 +49,12 @@ const InvoiceProcessorApp = () => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [sheetInvoices, setSheetInvoices] = useState([]);
-  const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('admin-dashboard');
   const [editingInvoice, setEditingInvoice] = useState(null);
 
   // ==========================================
-  // ✅ NUOVO: Stati per modal errori avanzato
+  // ✅ Stati per modal errori avanzato
   // ==========================================
   const [errorModalData, setErrorModalData] = useState(null);
   const [parsedProdotti, setParsedProdotti] = useState([]);
@@ -65,14 +65,7 @@ const InvoiceProcessorApp = () => {
   const [loginError, setLoginError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [selectedStoreForConfirmation, setSelectedStoreForConfirmation] = useState('');
   const [availableStores, setAvailableStores] = useState(negoziData);
-
-  const getStoreEmail = (storeName) => {
-    if (!storeName) return '';
-    const negozio = (availableStores || negoziData).find(n => n.nome === storeName);
-    return negozio?.email || '';
-  };
 
   useEffect(() => {
     if (token) verifyToken();
@@ -235,7 +228,6 @@ const InvoiceProcessorApp = () => {
     setUser(null);
     setLoginForm({ email: '', password: '' });
     setActiveTab('pending');
-    setSelectedInvoice(null);
     setEditingInvoice(null);
     setSheetInvoices([]);
     setSuccess('Logout effettuato con successo!');
@@ -327,7 +319,7 @@ const InvoiceProcessorApp = () => {
   };
 
   // ==========================================
-  // ✅ NUOVO: Funzione per aprire modal errori avanzato
+  // ✅ Funzione per aprire modal errori avanzato
   // ==========================================
   const openErrorModal = async (invoice, deliveryDate) => {
     try {
@@ -364,7 +356,7 @@ const InvoiceProcessorApp = () => {
   };
 
   // ==========================================
-  // ✅ NUOVO: Funzione per gestire modifiche prodotto
+  // ✅ Funzione per gestire modifiche prodotto
   // ==========================================
   const handleProdottoChange = (rigaNumero, campo, valore) => {
     setModificheProdotti(prev => prev.map(p => {
@@ -385,7 +377,7 @@ const InvoiceProcessorApp = () => {
   };
 
   // ==========================================
-  // ✅ NUOVO: Funzione per inviare report errori
+  // ✅ Funzione per inviare report errori
   // ==========================================
   const submitErrorReport = async () => {
     try {
@@ -464,13 +456,6 @@ const InvoiceProcessorApp = () => {
     if (!user) return false;
     if (user.role === 'admin') return true;
     return user.permissions?.includes(requiredPermission);
-  };
-
-  const isOldInvoice = (dateString) => {
-    const invoiceDate = new Date(dateString);
-    const fiveDaysAgo = new Date();
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-    return invoiceDate < fiveDaysAgo;
   };
 
   const LoadingSpinner = () => (
@@ -644,691 +629,489 @@ const InvoiceProcessorApp = () => {
         {success && <AlertMessage type="success" message={success} onClose={() => setSuccess('')} />}
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Tab Navigation */}
+     {/* Navigation Tabs */}
         {user.role === 'admin' ? (
-          <AdminSidebarLayout 
-            activeTab={activeTab} 
+          <AdminSidebarLayout
+            activeTab={activeTab}
             setActiveTab={setActiveTab}
+            user={user}
           >
-            {activeTab === 'admin-dashboard' && <AdminDashboard />}
-            {activeTab === 'admin-users' && <AdminUserManager />}
-            {activeTab === 'admin-invoices' && <AdminInvoiceManager />}
-            {activeTab === 'admin-movimentazioni' && <AdminMovimentazioniManager />}
-            {activeTab === 'admin-txt-files' && <TxtFilesManager />}
-            {activeTab === 'movimentazione' && <Movimentazione />}
-            {activeTab === 'pending' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-fradiavolo-charcoal">Fatture In Attesa</h2>
-                  <span className="px-4 py-2 bg-fradiavolo-orange/10 text-fradiavolo-orange rounded-xl font-semibold border border-fradiavolo-orange/30">
-                    {pendingInvoices.length} fatture
-                  </span>
-                </div>
-
-                {pendingInvoices.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Package className="h-16 w-16 mx-auto text-fradiavolo-charcoal-light mb-4" />
-                    <p className="text-fradiavolo-charcoal-light text-lg">Nessuna fattura in attesa</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-6">
-                    {pendingInvoices.map((invoice) => (
-                      <div
-                        key={invoice.id}
-                        className="bg-white rounded-2xl shadow-fradiavolo-lg border border-fradiavolo-cream-dark overflow-hidden hover:shadow-fradiavolo transition-all"
-                      >
-                        <div className="p-6">
-                          {/* Invoice Header */}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-3 sm:space-y-0">
-                            <div className="flex items-center space-x-4">
-                              <div className="p-3 bg-fradiavolo-red/10 rounded-xl border border-fradiavolo-red/20">
-                                <FileText className="h-6 w-6 text-fradiavolo-red" />
-                              </div>
-                              <div>
-                                <h3 className="text-xl font-bold text-fradiavolo-charcoal">
-                                  {invoice.numero}
-                                </h3>
-                                <p className="text-fradiavolo-charcoal-light">
-                                  {invoice.fornitore}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <span className="px-4 py-2 bg-fradiavolo-orange/10 text-fradiavolo-orange rounded-xl font-semibold text-sm border border-fradiavolo-orange/30 w-fit">
-                              ⏳ In Attesa
-                            </span>
-                          </div>
-
-                          {/* Invoice Details */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Data Fattura</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                {invoice.data_fattura}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Importo</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                €{invoice.importo}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Punto Vendita</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                {invoice.punto_vendita}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Caricato</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                {invoice.timestamp ? new Date(invoice.timestamp).toLocaleDateString('it-IT') : '-'}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="border-t border-fradiavolo-cream-dark pt-6">
-                            <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                              Data di consegna <span className="text-fradiavolo-red">*</span>
-                            </label>
-                            <input
-                              type="date"
-                              id={`delivery-date-${invoice.id}`}
-                              max={new Date().toISOString().split('T')[0]}
-                              className="w-full max-w-xs px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors mb-4"
-                            />
-
-                            <div className="flex flex-col sm:flex-row gap-3">
-                              <button
-                                onClick={() => {
-                                  const dateInput = document.getElementById(`delivery-date-${invoice.id}`);
-                                  const raw = dateInput?.value || '';
-                                  const iso = toISODate(raw);
-                                  if (!iso) {
-                                    setError('⚠️ Inserisci una data di consegna valida');
-                                    setTimeout(() => setError(''), 3000);
-                                    return;
-                                  }
-                                  confirmDelivery(invoice.id, iso);
-                                }}
-                                disabled={isLoading}
-                                className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-green hover:bg-fradiavolo-green-dark text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 flex items-center justify-center space-x-2 transform hover:scale-105"
-                              >
-                                <CheckCircle className="h-5 w-5" />
-                                <span>Confermo Tutto OK</span>
-                              </button>
-
-                              {renderErrorButton(invoice)}
-
-                              {invoice.file_url && (
-  
-    href={invoice.file_url}
-    target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-charcoal hover:bg-fradiavolo-charcoal-light text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
-                                >
-                                  <Eye className="h-5 w-5" />
-                                  <span>Vedi PDF</span>
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            {activeTab === 'admin-dashboard' && (
+              <AdminDashboard
+                apiCall={apiCall}
+                setError={setError}
+                setSuccess={setSuccess}
+              />
             )}
-            {activeTab === 'delivered' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-fradiavolo-charcoal">Fatture Consegnate</h2>
-                  <span className="px-4 py-2 bg-fradiavolo-green/10 text-fradiavolo-green-dark rounded-xl font-semibold border border-fradiavolo-green/30">
-                    {deliveredInvoices.length} fatture
-                  </span>
-                </div>
-
-                {deliveredInvoices.length === 0 ? (
-                  <div className="text-center py-12">
-                    <CheckCircle className="h-16 w-16 mx-auto text-fradiavolo-charcoal-light mb-4" />
-                    <p className="text-fradiavolo-charcoal-light text-lg">Nessuna fattura consegnata</p>
-                  </div>
-                ) : (
-                  <div className="grid gap-6">
-                    {deliveredInvoices.map((invoice) => (
-                      <div
-                        key={invoice.id}
-                        className="bg-white rounded-2xl shadow-fradiavolo-lg border border-fradiavolo-cream-dark overflow-hidden"
-                      >
-                        <div className="p-6">
-                          {/* Invoice Header */}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-3 sm:space-y-0">
-                            <div className="flex items-center space-x-4">
-                              <div className="p-3 bg-fradiavolo-green/10 rounded-xl border border-fradiavolo-green/20">
-                                <CheckCircle className="h-6 w-6 text-fradiavolo-green" />
-                              </div>
-                              <div>
-                                <h3 className="text-xl font-bold text-fradiavolo-charcoal">
-                                  {invoice.numero}
-                                </h3>
-                                <p className="text-fradiavolo-charcoal-light">
-                                  {invoice.fornitore}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <span className="px-4 py-2 bg-fradiavolo-green/10 text-fradiavolo-green-dark rounded-xl font-semibold text-sm border border-fradiavolo-green/30 w-fit">
-                              ✅ Consegnato
-                            </span>
-                          </div>
-
-                          {/* Invoice Details */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Data Fattura</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                {invoice.data_fattura}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Data Consegna</p>
-                              <p className="font-semibold text-fradiavolo-green-dark">
-                                {invoice.data_consegna}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Importo</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                €{invoice.importo}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Confermato da</p>
-                              <p className="font-semibold text-fradiavolo-charcoal text-sm">
-                                {invoice.confermato_da || user.email}
-                              </p>
-                            </div>
-                          </div>
-
-                          {invoice.note && (
-                            <div className="bg-fradiavolo-orange/10 border border-fradiavolo-orange/30 rounded-xl p-4 mb-4">
-                              <div className="flex items-start space-x-3">
-                                <AlertCircle className="h-5 w-5 text-fradiavolo-orange flex-shrink-0 mt-0.5" />
-                                <div>
-                                  <p className="text-sm font-semibold text-fradiavolo-orange mb-1">Note di consegna:</p>
-                                  <p className="text-sm text-fradiavolo-charcoal">{invoice.note}</p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Actions */}
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <button
-                              onClick={() => setEditingInvoice(invoice)}
-                              className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-charcoal hover:bg-fradiavolo-charcoal-light text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
-                            >
-                              <Edit3 className="h-5 w-5" />
-                              <span>Modifica</span>
-                            </button>
-
-                           {invoice.file_url && (
-  
-    href={invoice.file_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-red hover:bg-fradiavolo-red/90 text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
-                              >
-                                <Eye className="h-5 w-5" />
-                                <span>Vedi PDF</span>
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+            {activeTab === 'admin-invoices' && (
+              <AdminInvoiceManager
+                apiCall={apiCall}
+                setError={setError}
+                setSuccess={setSuccess}
+                availableStores={availableStores}
+                toISODate={toISODate}
+              />
+            )}
+            {activeTab === 'admin-users' && (
+              <AdminUserManager
+                apiCall={apiCall}
+                setError={setError}
+                setSuccess={setSuccess}
+                availableStores={availableStores}
+              />
+            )}
+            {activeTab === 'admin-movimentazioni' && (
+              <AdminMovimentazioniManager
+                apiCall={apiCall}
+                setError={setError}
+                setSuccess={setSuccess}
+                availableStores={availableStores}
+              />
+            )}
+            {activeTab === 'admin-txt-files' && (
+              <TxtFilesManager
+                apiCall={apiCall}
+                setError={setError}
+                setSuccess={setSuccess}
+              />
             )}
           </AdminSidebarLayout>
         ) : (
           <>
-            {/* User Navigation */}
-            <div className="bg-white rounded-2xl shadow-fradiavolo-lg border border-fradiavolo-cream-dark p-2 mb-6">
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setActiveTab('pending')}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
-                    activeTab === 'pending'
-                      ? 'bg-fradiavolo-red text-white shadow-lg'
-                      : 'text-fradiavolo-charcoal hover:bg-fradiavolo-cream'
-                  }`}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <Clock className="h-5 w-5" />
-                    <span>In Attesa ({pendingInvoices.length})</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('delivered')}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
-                    activeTab === 'delivered'
-                      ? 'bg-fradiavolo-red text-white shadow-lg'
-                      : 'text-fradiavolo-charcoal hover:bg-fradiavolo-cream'
-                  }`}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <CheckCircle className="h-5 w-5" />
-                    <span>Consegnate ({deliveredInvoices.length})</span>
-                  </div>
-                </button>
-                {hasPermission('movimentazione') && (
+            <div className="bg-white rounded-2xl shadow-fradiavolo border border-fradiavolo-cream-dark overflow-hidden mb-6">
+              <div className="border-b border-fradiavolo-cream-dark overflow-x-auto mobile-tabs">
+                <nav className="flex min-w-max sm:min-w-0">
                   <button
-                    onClick={() => setActiveTab('movimentazione')}
-                    className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all ${
-                      activeTab === 'movimentazione'
-                        ? 'bg-fradiavolo-red text-white shadow-lg'
-                        : 'text-fradiavolo-charcoal hover:bg-fradiavolo-cream'
+                    onClick={() => setActiveTab('pending')}
+                    className={`flex-1 sm:flex-initial px-4 sm:px-8 py-4 text-sm sm:text-base font-semibold transition-all whitespace-nowrap mobile-tab ${
+                      activeTab === 'pending'
+                        ? 'text-fradiavolo-red border-b-4 border-fradiavolo-red bg-fradiavolo-cream/30'
+                        : 'text-fradiavolo-charcoal-light hover:text-fradiavolo-charcoal hover:bg-fradiavolo-cream/20'
                     }`}
                   >
                     <div className="flex items-center justify-center space-x-2">
-                      <Truck className="h-5 w-5" />
-                      <span>Movimentazioni</span>
+                      <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span>In Attesa</span>
+                      {pendingInvoices.length > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 py-1 text-xs font-bold text-white bg-fradiavolo-red rounded-full">
+                          {pendingInvoices.length}
+                        </span>
+                      )}
                     </div>
                   </button>
-                )}
+
+                  <button
+                    onClick={() => setActiveTab('delivered')}
+                    className={`flex-1 sm:flex-initial px-4 sm:px-8 py-4 text-sm sm:text-base font-semibold transition-all whitespace-nowrap mobile-tab ${
+                      activeTab === 'delivered'
+                        ? 'text-fradiavolo-red border-b-4 border-fradiavolo-red bg-fradiavolo-cream/30'
+                        : 'text-fradiavolo-charcoal-light hover:text-fradiavolo-charcoal hover:bg-fradiavolo-cream/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center space-x-2">
+                      <Truck className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span>Consegnate</span>
+                      {deliveredInvoices.length > 0 && (
+                        <span className="inline-flex items-center justify-center min-w-[24px] h-6 px-2 py-1 text-xs font-bold text-fradiavolo-green-dark bg-fradiavolo-green/20 rounded-full border border-fradiavolo-green">
+                          {deliveredInvoices.length}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+
+                  {hasPermission('movimentazioni') && (
+                    <button
+                      onClick={() => setActiveTab('movimentazioni')}
+                      className={`flex-1 sm:flex-initial px-4 sm:px-8 py-4 text-sm sm:text-base font-semibold transition-all whitespace-nowrap mobile-tab ${
+                        activeTab === 'movimentazioni'
+                          ? 'text-fradiavolo-red border-b-4 border-fradiavolo-red bg-fradiavolo-cream/30'
+                          : 'text-fradiavolo-charcoal-light hover:text-fradiavolo-charcoal hover:bg-fradiavolo-cream/20'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center space-x-2">
+                        <Package className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span>Movimentazioni</span>
+                      </div>
+                    </button>
+                  )}
+                </nav>
               </div>
             </div>
 
-            {/* Tab Content */}
+            {/* Pending Invoices */}
             {activeTab === 'pending' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-fradiavolo-charcoal">Fatture In Attesa</h2>
-                  <span className="px-4 py-2 bg-fradiavolo-orange/10 text-fradiavolo-orange rounded-xl font-semibold border border-fradiavolo-orange/30">
-                    {pendingInvoices.length} fatture
-                  </span>
-                </div>
-
-                {pendingInvoices.length === 0 ? (
+              <div className="space-y-4 sm:space-y-6">
+                {isLoading && pendingInvoices.length === 0 ? (
                   <div className="text-center py-12">
-                    <Package className="h-16 w-16 mx-auto text-fradiavolo-charcoal-light mb-4" />
-                    <p className="text-fradiavolo-charcoal-light text-lg">Nessuna fattura in attesa</p>
+                    <LoadingSpinner />
+                    <p className="mt-4 text-fradiavolo-charcoal-light">Caricamento fatture...</p>
+                  </div>
+                ) : pendingInvoices.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-fradiavolo border border-fradiavolo-cream-dark p-8 sm:p-12 text-center">
+                    <div className="p-4 bg-fradiavolo-green/10 rounded-2xl w-fit mx-auto mb-4">
+                      <CheckCircle className="h-12 w-12 sm:h-16 sm:w-16 text-fradiavolo-green" />
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-fradiavolo-charcoal mb-2">
+                      Nessuna fattura in attesa
+                    </h3>
+                    <p className="text-fradiavolo-charcoal-light">
+                      Tutte le consegne sono state confermate ✨
+                    </p>
                   </div>
                 ) : (
-                  <div className="grid gap-6">
-                    {pendingInvoices.map((invoice) => (
-                      <div
-                        key={invoice.id}
-                        className="bg-white rounded-2xl shadow-fradiavolo-lg border border-fradiavolo-cream-dark overflow-hidden hover:shadow-fradiavolo transition-all"
-                      >
-                        <div className="p-6">
-                          {/* Invoice Header */}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-3 sm:space-y-0">
-                            <div className="flex items-center space-x-4">
-                              <div className="p-3 bg-fradiavolo-red/10 rounded-xl border border-fradiavolo-red/20">
-                                <FileText className="h-6 w-6 text-fradiavolo-red" />
-                              </div>
-                              <div>
-                                <h3 className="text-xl font-bold text-fradiavolo-charcoal">
-                                  {invoice.numero}
-                                </h3>
-                                <p className="text-fradiavolo-charcoal-light">
-                                  {invoice.fornitore}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <span className="px-4 py-2 bg-fradiavolo-orange/10 text-fradiavolo-orange rounded-xl font-semibold text-sm border border-fradiavolo-orange/30 w-fit">
-                              ⏳ In Attesa
-                            </span>
+                  pendingInvoices.map((invoice) => (
+                    <div key={invoice.id} className="bg-white rounded-2xl shadow-fradiavolo border border-fradiavolo-cream-dark overflow-hidden hover:shadow-fradiavolo-lg transition-all mobile-card">
+                      <div className="bg-gradient-to-r from-fradiavolo-red to-fradiavolo-orange p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-2 sm:space-y-0">
+                          <div>
+                            <h3 className="text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">
+                              Fattura #{invoice.numero_fattura}
+                            </h3>
+                            <p className="text-white/90 text-sm sm:text-base font-medium">
+                              {invoice.fornitore}
+                            </p>
                           </div>
+                          <span className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-white/20 backdrop-blur-sm text-white rounded-full text-xs sm:text-sm font-semibold border border-white/30 w-fit">
+                            <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                            In Attesa
+                          </span>
+                        </div>
+                      </div>
 
-                          {/* Invoice Details */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Data Fattura</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                {invoice.data_fattura}
-                              </p>
+                      <div className="p-4 sm:p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                          <div className="bg-fradiavolo-cream/30 p-3 sm:p-4 rounded-xl border border-fradiavolo-cream-dark">
+                            <div className="text-xs sm:text-sm text-fradiavolo-charcoal-light font-semibold mb-1">
+                              Data Fattura
                             </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Importo</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                €{invoice.importo}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Punto Vendita</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                {invoice.punto_vendita}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Caricato</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                {invoice.timestamp ? new Date(invoice.timestamp).toLocaleDateString('it-IT') : '-'}
-                              </p>
+                            <div className="text-base sm:text-lg font-bold text-fradiavolo-charcoal">
+                              {new Date(invoice.data_fattura).toLocaleDateString('it-IT')}
                             </div>
                           </div>
-
-                          {/* Actions */}
-                          <div className="border-t border-fradiavolo-cream-dark pt-6">
-                            <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                              Data di consegna <span className="text-fradiavolo-red">*</span>
-                            </label>
-                            <input
-                              type="date"
-                              id={`delivery-date-${invoice.id}`}
-                              max={new Date().toISOString().split('T')[0]}
-                              className="w-full max-w-xs px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors mb-4"
-                            />
-
-                            <div className="flex flex-col sm:flex-row gap-3">
-                              <button
-                                onClick={() => {
-                                  const dateInput = document.getElementById(`delivery-date-${invoice.id}`);
-                                  const raw = dateInput?.value || '';
-                                  const iso = toISODate(raw);
-                                  if (!iso) {
-                                    setError('⚠️ Inserisci una data di consegna valida');
-                                    setTimeout(() => setError(''), 3000);
-                                    return;
-                                  }
-                                  confirmDelivery(invoice.id, iso);
-                                }}
-                                disabled={isLoading}
-                                className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-green hover:bg-fradiavolo-green-dark text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 flex items-center justify-center space-x-2 transform hover:scale-105"
-                              >
-                                <CheckCircle className="h-5 w-5" />
-                                <span>Confermo Tutto OK</span>
-                              </button>
-
-                              {renderErrorButton(invoice)}
-
-                             {invoice.file_url && (
-  
-    href={invoice.file_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-charcoal hover:bg-fradiavolo-charcoal-light text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
-                                >
-                                  <Eye className="h-5 w-5" />
-                                  <span>Vedi PDF</span>
-                                </a>
-                              )}
+                          <div className="bg-fradiavolo-cream/30 p-3 sm:p-4 rounded-xl border border-fradiavolo-cream-dark">
+                            <div className="text-xs sm:text-sm text-fradiavolo-charcoal-light font-semibold mb-1">
+                              Importo
+                            </div>
+                            <div className="text-base sm:text-lg font-bold text-fradiavolo-charcoal">
+                              € {parseFloat(invoice.importo_totale).toFixed(2)}
                             </div>
                           </div>
                         </div>
+
+                        <div className="mb-4 sm:mb-6">
+                          <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
+                            Data di consegna
+                          </label>
+                          <input
+                            id={`delivery-date-${invoice.id}`}
+                            type="date"
+                            defaultValue={new Date().toISOString().split('T')[0]}
+                            className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors text-sm sm:text-base"
+                          />
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                          <button
+                            onClick={() => {
+                              const dateInput = document.getElementById(`delivery-date-${invoice.id}`);
+                              const raw = dateInput?.value || '';
+                              const iso = toISODate(raw);
+                              if (!iso) {
+                                setError('⚠️ Inserisci una data di consegna valida');
+                                setTimeout(() => setError(''), 3000);
+                                return;
+                              }
+                              if (window.confirm('✅ Confermare la consegna SENZA errori?')) {
+                                confirmDelivery(invoice.id, iso);
+                              }
+                            }}
+                            disabled={isLoading}
+                            className="w-full sm:w-auto px-4 sm:px-6 py-3 bg-fradiavolo-green hover:bg-fradiavolo-green-dark text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 flex items-center justify-center space-x-2 transform hover:scale-105 min-h-[44px]"
+                          >
+                            <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <span className="text-sm sm:text-base">Tutto OK</span>
+                          </button>
+
+                          {renderErrorButton(invoice)}
+                          <a
+                            href={invoice.link_pdf}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full sm:w-auto px-4 sm:px-6 py-3 bg-fradiavolo-charcoal hover:bg-fradiavolo-charcoal-light text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105 min-h-[44px]"
+                          >
+                            <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+                            <span className="text-sm sm:text-base">Vedi PDF</span>
+                          </a>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 )}
               </div>
             )}
 
+            {/* Delivered Invoices */}
             {activeTab === 'delivered' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-fradiavolo-charcoal">Fatture Consegnate</h2>
-                  <span className="px-4 py-2 bg-fradiavolo-green/10 text-fradiavolo-green-dark rounded-xl font-semibold border border-fradiavolo-green/30">
-                    {deliveredInvoices.length} fatture
-                  </span>
-                </div>
-
-                {deliveredInvoices.length === 0 ? (
+              <div className="space-y-4 sm:space-y-6">
+                {isLoading && deliveredInvoices.length === 0 ? (
                   <div className="text-center py-12">
-                    <CheckCircle className="h-16 w-16 mx-auto text-fradiavolo-charcoal-light mb-4" />
-                    <p className="text-fradiavolo-charcoal-light text-lg">Nessuna fattura consegnata</p>
+                    <LoadingSpinner />
+                    <p className="mt-4 text-fradiavolo-charcoal-light">Caricamento fatture...</p>
+                  </div>
+                ) : deliveredInvoices.length === 0 ? (
+                  <div className="bg-white rounded-2xl shadow-fradiavolo border border-fradiavolo-cream-dark p-8 sm:p-12 text-center">
+                    <div className="p-4 bg-fradiavolo-cream rounded-2xl w-fit mx-auto mb-4">
+                      <Package className="h-12 w-12 sm:h-16 sm:w-16 text-fradiavolo-charcoal-light" />
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-fradiavolo-charcoal mb-2">
+                      Nessuna consegna registrata
+                    </h3>
+                    <p className="text-fradiavolo-charcoal-light">
+                      Le consegne confermate appariranno qui
+                    </p>
                   </div>
                 ) : (
-                  <div className="grid gap-6">
-                    {deliveredInvoices.map((invoice) => (
-                      <div
-                        key={invoice.id}
-                        className="bg-white rounded-2xl shadow-fradiavolo-lg border border-fradiavolo-cream-dark overflow-hidden"
-                      >
-                        <div className="p-6">
-                          {/* Invoice Header */}
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-3 sm:space-y-0">
-                            <div className="flex items-center space-x-4">
-                              <div className="p-3 bg-fradiavolo-green/10 rounded-xl border border-fradiavolo-green/20">
-                                <CheckCircle className="h-6 w-6 text-fradiavolo-green" />
-                              </div>
+                  deliveredInvoices.map((invoice) => (
+                    <div key={invoice.id} className="bg-white rounded-2xl shadow-fradiavolo border border-fradiavolo-cream-dark overflow-hidden hover:shadow-fradiavolo-lg transition-all mobile-card">
+                      <div className="bg-gradient-to-r from-fradiavolo-green to-fradiavolo-green-dark p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start space-y-2 sm:space-y-0">
+                          <div>
+                            <h3 className="text-xl sm:text-2xl font-bold text-white mb-1 sm:mb-2">
+                              Fattura #{invoice.numero_fattura}
+                            </h3>
+                            <p className="text-white/90 text-sm sm:text-base font-medium">
+                              {invoice.fornitore}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-white/20 backdrop-blur-sm text-white rounded-full text-xs sm:text-sm font-semibold border border-white/30 w-fit">
+                            <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                            Consegnato
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 sm:p-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+                          <div className="bg-fradiavolo-cream/30 p-3 sm:p-4 rounded-xl border border-fradiavolo-cream-dark">
+                            <div className="text-xs sm:text-sm text-fradiavolo-charcoal-light font-semibold mb-1">
+                              Data Fattura
+                            </div>
+                            <div className="text-sm sm:text-base font-bold text-fradiavolo-charcoal">
+                              {new Date(invoice.data_fattura).toLocaleDateString('it-IT')}
+                            </div>
+                          </div>
+                          <div className="bg-fradiavolo-cream/30 p-3 sm:p-4 rounded-xl border border-fradiavolo-cream-dark">
+                            <div className="text-xs sm:text-sm text-fradiavolo-charcoal-light font-semibold mb-1">
+                              Data Consegna
+                            </div>
+                            <div className="text-sm sm:text-base font-bold text-fradiavolo-charcoal">
+                              {invoice.data_consegna ? new Date(invoice.data_consegna).toLocaleDateString('it-IT') : 'N/A'}
+                            </div>
+                          </div>
+                          <div className="bg-fradiavolo-cream/30 p-3 sm:p-4 rounded-xl border border-fradiavolo-cream-dark">
+                            <div className="text-xs sm:text-sm text-fradiavolo-charcoal-light font-semibold mb-1">
+                              Importo
+                            </div>
+                            <div className="text-sm sm:text-base font-bold text-fradiavolo-charcoal">
+                              € {parseFloat(invoice.importo_totale).toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {invoice.note && (
+                          <div className="mb-4 p-3 sm:p-4 bg-fradiavolo-orange/10 border-l-4 border-fradiavolo-orange rounded-lg">
+                            <div className="flex items-start space-x-2">
+                              <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-fradiavolo-orange flex-shrink-0 mt-0.5" />
                               <div>
-                                <h3 className="text-xl font-bold text-fradiavolo-charcoal">
-                                  {invoice.numero}
-                                </h3>
-                                <p className="text-fradiavolo-charcoal-light">
-                                  {invoice.fornitore}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <span className="px-4 py-2 bg-fradiavolo-green/10 text-fradiavolo-green-dark rounded-xl font-semibold text-sm border border-fradiavolo-green/30 w-fit">
-                              ✅ Consegnato
-                            </span>
-                          </div>
-
-                          {/* Invoice Details */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Data Fattura</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                {invoice.data_fattura}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Data Consegna</p>
-                              <p className="font-semibold text-fradiavolo-green-dark">
-                                {invoice.data_consegna}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Importo</p>
-                              <p className="font-semibold text-fradiavolo-charcoal">
-                                €{invoice.importo}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-fradiavolo-charcoal-light mb-1">Confermato da</p>
-                              <p className="font-semibold text-fradiavolo-charcoal text-sm">
-                                {invoice.confermato_da || user.email}
-                              </p>
-                            </div>
-                          </div>
-
-                          {invoice.note && (
-                            <div className="bg-fradiavolo-orange/10 border border-fradiavolo-orange/30 rounded-xl p-4 mb-4">
-                              <div className="flex items-start space-x-3">
-                                <AlertCircle className="h-5 w-5 text-fradiavolo-orange flex-shrink-0 mt-0.5" />
-                                <div>
-                                  <p className="text-sm font-semibold text-fradiavolo-orange mb-1">Note di consegna:</p>
-                                  <p className="text-sm text-fradiavolo-charcoal">{invoice.note}</p>
+                                <div className="text-xs sm:text-sm font-semibold text-fradiavolo-orange mb-1">
+                                  Note Consegna
+                                </div>
+                                <div className="text-xs sm:text-sm text-fradiavolo-charcoal whitespace-pre-wrap">
+                                  {invoice.note}
                                 </div>
                               </div>
                             </div>
-                          )}
+                          </div>
+                        )}
 
-                          {/* Actions */}
-                          <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex items-center justify-between text-xs sm:text-sm text-fradiavolo-charcoal-light mb-4">
+                          <span className="flex items-center space-x-1.5">
+                            <User className="h-3 w-3 sm:h-4 sm:w-4" />
+                            <span className="mobile-email">{invoice.confermato_da || 'N/A'}</span>
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
+                          {user.role === 'admin' && (
                             <button
                               onClick={() => setEditingInvoice(invoice)}
-                              className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-charcoal hover:bg-fradiavolo-charcoal-light text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
+                              className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-fradiavolo-orange hover:bg-fradiavolo-gold text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-md flex items-center justify-center space-x-2 transform hover:scale-105 min-h-[44px]"
                             >
-                              <Edit3 className="h-5 w-5" />
-                              <span>Modifica</span>
+                              <Edit3 className="h-4 w-4" />
+                              <span className="text-sm sm:text-base">Modifica</span>
                             </button>
-
-                            {invoice.file_url && (
-  
-    href={invoice.file_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full sm:w-auto px-6 py-3 bg-fradiavolo-red hover:bg-fradiavolo-red/90 text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg flex items-center justify-center space-x-2 transform hover:scale-105"
-                              >
-                                <Eye className="h-5 w-5" />
-                                <span>Vedi PDF</span>
-                              </a>
-                            )}
-                          </div>
+                          )}
+                          <a
+                            href={invoice.link_pdf}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-fradiavolo-charcoal hover:bg-fradiavolo-charcoal-light text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-md flex items-center justify-center space-x-2 transform hover:scale-105 min-h-[44px]"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span className="text-sm sm:text-base">Vedi PDF</span>
+                          </a>
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 )}
               </div>
             )}
 
-            {activeTab === 'movimentazione' && <Movimentazione />}
+            {/* Movimentazioni */}
+            {activeTab === 'movimentazioni' && hasPermission('movimentazioni') && (
+              <Movimentazione
+                user={user}
+                apiCall={apiCall}
+                setError={setError}
+                setSuccess={setSuccess}
+                AlertMessage={AlertMessage}
+                availableStores={availableStores}
+              />
+            )}
           </>
         )}
       </div>
 
-      {/* ==========================================
-          ✅ NUOVO: Modal Report Errori Avanzato
-          ========================================== */}
+      {/* ========================================== */}
+      {/* ✅ MODAL ERRORI AVANZATO */}
+      {/* ========================================== */}
       {errorModalData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-fradiavolo-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-fradiavolo-cream-dark">
-            
-            {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-fradiavolo-cream-dark p-6 z-10">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-fradiavolo-orange/20 rounded-2xl border border-fradiavolo-orange/30">
-                  <AlertCircle className="h-6 w-6 text-fradiavolo-orange" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-2xl font-bold text-fradiavolo-charcoal">
-                    Segnala errori di consegna
-                  </h3>
-                  <p className="text-fradiavolo-charcoal-light mt-1">
-                    {errorModalData.fornitore} - <span className="text-fradiavolo-red font-semibold">{errorModalData.numero}</span>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl my-8 max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header Modal */}
+            <div className="bg-gradient-to-r from-fradiavolo-orange to-fradiavolo-gold p-6 flex-shrink-0">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    ⚠️ Segnalazione Errori Consegna
+                  </h2>
+                  <p className="text-white/90">
+                    Fattura #{errorModalData.numero_fattura} - {errorModalData.fornitore}
+                  </p>
+                  <p className="text-white/80 text-sm mt-1">
+                    Data consegna: {new Date(errorModalData.deliveryDate).toLocaleDateString('it-IT')}
                   </p>
                 </div>
-              </div>
-              
-              {/* Data consegna */}
-              <div className="mt-4">
-                <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                  Data di consegna <span className="text-fradiavolo-red">*</span>
-                </label>
-                <input
-                  type="date"
-                  value={errorModalData.deliveryDate}
-                  onChange={(e) => setErrorModalData(prev => ({ ...prev, deliveryDate: e.target.value }))}
-                  max={new Date().toISOString().split('T')[0]}
-                  className="w-full max-w-xs px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange transition-colors"
-                />
+                <button
+                  onClick={() => {
+                    setErrorModalData(null);
+                    setParsedProdotti([]);
+                    setModificheProdotti([]);
+                    setNoteErrori('');
+                  }}
+                  className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+                >
+                  <X className="h-6 w-6" />
+                </button>
               </div>
             </div>
-            
-            {/* Body - Lista prodotti */}
-            <div className="p-6">
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-lg font-bold text-fradiavolo-charcoal">
-                    📦 Prodotti ({parsedProdotti.length} righe)
-                  </h4>
-                  <div className="text-sm">
-                    <span className="text-fradiavolo-orange font-semibold">
-                      {modificheProdotti.filter(m => m.modificato).length} modificati
-                    </span>
-                    <span className="text-fradiavolo-charcoal-light"> su {parsedProdotti.length}</span>
+
+            {/* Body Modal - Scrollable */}
+            <div className="p-6 overflow-y-auto flex-1">
+              {/* Info Fattura */}
+              {errorModalData.fatturaInfo && (
+                <div className="bg-fradiavolo-cream/30 p-4 rounded-xl border border-fradiavolo-cream-dark mb-6">
+                  <h3 className="text-sm font-semibold text-fradiavolo-charcoal mb-3 flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Informazioni DDT
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-fradiavolo-charcoal-light">Numero:</span>
+                      <span className="ml-2 font-semibold text-fradiavolo-charcoal">
+                        {errorModalData.fatturaInfo.numero}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-fradiavolo-charcoal-light">Data:</span>
+                      <span className="ml-2 font-semibold text-fradiavolo-charcoal">
+                        {errorModalData.fatturaInfo.data}
+                      </span>
+                    </div>
                   </div>
                 </div>
-                
-                <div className="space-y-4">
-                  {modificheProdotti.map((prodotto) => {
-                    const originale = parsedProdotti.find(p => p.riga_numero === prodotto.riga_numero);
-                    return (
-                      <div 
-                        key={prodotto.riga_numero}
-                        className={`border rounded-xl p-4 transition-all ${
-                          prodotto.modificato 
-                            ? 'border-fradiavolo-orange bg-fradiavolo-orange/5' 
-                            : 'border-fradiavolo-cream-dark bg-white'
-                        }`}
-                      >
-                        {/* Intestazione prodotto */}
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <h5 className="font-bold text-fradiavolo-charcoal">
-                              <span className="text-fradiavolo-red">{prodotto.codice}</span> - {prodotto.nome}
-                            </h5>
-                            <p className="text-xs text-fradiavolo-charcoal-light mt-1">
-                              Riga {prodotto.riga_numero} del DDT
-                            </p>
-                          </div>
-                          {prodotto.modificato && (
-                            <span className="px-2 py-1 bg-fradiavolo-orange/20 text-fradiavolo-orange text-xs font-semibold rounded-full border border-fradiavolo-orange/30">
-                              🟡 Modificato
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* Valori originali e ricevuti */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Originale (read-only) */}
-                          <div className="bg-fradiavolo-cream/50 p-3 rounded-lg border border-fradiavolo-cream-dark">
-                            <p className="text-xs font-semibold text-fradiavolo-charcoal-light mb-2">
-                              ✓ Come da DDT:
-                            </p>
-                            <div className="flex items-center space-x-3">
-                              <div className="flex-1">
-                                <p className="text-xs text-fradiavolo-charcoal-light mb-1">Quantità</p>
-                                <p className="text-lg font-bold text-fradiavolo-charcoal">
-                                  {originale.quantita}
-                                </p>
+              )}
+
+              {/* Tabella Prodotti */}
+              {modificheProdotti.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-bold text-fradiavolo-charcoal mb-4 flex items-center">
+                    <Package className="h-5 w-5 mr-2" />
+                    Verifica Prodotti Ricevuti
+                    <span className="ml-2 text-sm text-fradiavolo-charcoal-light font-normal">
+                      (Modifica solo i prodotti con differenze)
+                    </span>
+                  </h3>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse">
+                      <thead>
+                        <tr className="bg-fradiavolo-cream">
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-fradiavolo-charcoal border border-fradiavolo-cream-dark">
+                            Riga
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-fradiavolo-charcoal border border-fradiavolo-cream-dark">
+                            Codice
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-fradiavolo-charcoal border border-fradiavolo-cream-dark">
+                            Prodotto
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-fradiavolo-charcoal border border-fradiavolo-cream-dark bg-blue-50">
+                            Previsto DDT
+                          </th>
+                          <th className="px-4 py-3 text-center text-xs font-semibold text-fradiavolo-charcoal border border-fradiavolo-cream-dark bg-green-50">
+                            Ricevuto
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {modificheProdotti.map((prodotto, idx) => (
+                          <tr
+                            key={idx}
+                            className={`${
+                              prodotto.modificato ? 'bg-fradiavolo-orange/10' : 'bg-white'
+                            } hover:bg-fradiavolo-cream/20 transition-colors`}
+                          >
+                            <td className="px-4 py-3 text-sm border border-fradiavolo-cream-dark">
+                              {prodotto.riga_numero}
+                            </td>
+                            <td className="px-4 py-3 text-sm font-mono border border-fradiavolo-cream-dark">
+                              {prodotto.codice}
+                            </td>
+                            <td className="px-4 py-3 text-sm border border-fradiavolo-cream-dark">
+                              <div className="font-medium text-fradiavolo-charcoal">
+                                {prodotto.nome}
                               </div>
-                              <div className="flex-1">
-                                <p className="text-xs text-fradiavolo-charcoal-light mb-1">UM</p>
-                                <p className="text-lg font-bold text-fradiavolo-charcoal">
-                                  {originale.um}
-                                </p>
+                            </td>
+                            <td className="px-4 py-3 text-center border border-fradiavolo-cream-dark bg-blue-50/50">
+                              <div className="font-semibold text-fradiavolo-charcoal">
+                                {prodotto.quantita} {prodotto.um}
                               </div>
-                            </div>
-                          </div>
-                          
-                          {/* Ricevuto (editabile) */}
-                          <div className="bg-white p-3 rounded-lg border-2 border-fradiavolo-orange/30">
-                            <p className="text-xs font-semibold text-fradiavolo-orange mb-2">
-                              ✏️ Ricevuto effettivamente:
-                            </p>
-                            <div className="flex items-end space-x-3">
-                              <div className="flex-1">
-                                <label className="text-xs text-fradiavolo-charcoal-light mb-1 block">
-                                  Quantità
-                                </label>
+                            </td>
+                            <td className="px-4 py-3 border border-fradiavolo-cream-dark bg-green-50/50">
+                              <div className="flex items-center space-x-2 justify-center">
                                 <input
                                   type="number"
-                                  step="0.01"
                                   value={prodotto.quantita_ricevuta}
-                                  onChange={(e) => handleProdottoChange(
-                                    prodotto.riga_numero, 
-                                    'quantita_ricevuta', 
-                                    parseFloat(e.target.value) || 0
-                                  )}
-                                  className="w-full px-3 py-2 border border-fradiavolo-cream-dark rounded-lg focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange transition-colors"
+                                  onChange={(e) => handleProdottoChange(prodotto.riga_numero, 'quantita_ricevuta', parseFloat(e.target.value) || 0)}
+                                  className="w-20 px-2 py-1.5 border border-fradiavolo-cream-dark rounded-lg text-center font-semibold focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange"
+                                  step="0.01"
                                 />
-                              </div>
-                              <div className="flex-1">
-                                <label className="text-xs text-fradiavolo-charcoal-light mb-1 block">
-                                  UM
-                                </label>
                                 <select
                                   value={prodotto.um_ricevuta}
-                                  onChange={(e) => handleProdottoChange(
-                                    prodotto.riga_numero, 
-                                    'um_ricevuta', 
-                                    e.target.value
-                                  )}
-                                  className="w-full px-3 py-2 border border-fradiavolo-cream-dark rounded-lg focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange transition-colors"
+                                  onChange={(e) => handleProdottoChange(prodotto.riga_numero, 'um_ricevuta', e.target.value)}
+                                  className="px-2 py-1.5 border border-fradiavolo-cream-dark rounded-lg font-semibold focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange"
                                 >
                                   {UNITA_MISURA.map(um => (
                                     <option key={um.value} value={um.value}>
@@ -1336,177 +1119,223 @@ const InvoiceProcessorApp = () => {
                                     </option>
                                   ))}
                                 </select>
+                                {prodotto.modificato && (
+                                  <AlertCircle className="h-5 w-5 text-fradiavolo-orange flex-shrink-0" />
+                                )}
                               </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-sm text-blue-800 flex items-start">
+                      <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+                      <span>
+                        <strong>Suggerimento:</strong> Modifica solo le righe con differenze tra previsto e ricevuto. 
+                        Le righe corrette verranno registrate automaticamente come "OK".
+                      </span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-              
-              {/* Note aggiuntive */}
+              )}
+
+              {/* Note Testuali */}
               <div className="mb-6">
                 <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                  📝 Note aggiuntive (opzionale)
+                  Note Aggiuntive
+                  <span className="ml-2 text-fradiavolo-charcoal-light font-normal">
+                    (Descrivi eventuali problemi o osservazioni)
+                  </span>
                 </label>
                 <textarea
                   value={noteErrori}
                   onChange={(e) => setNoteErrori(e.target.value)}
-                  className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange transition-colors"
-                  rows="3"
-                  placeholder="Es: Prodotto danneggiato, cliente assente, problemi di qualità..."
+                  placeholder="Es: Prodotto danneggiato, confezione aperta, scadenza ravvicinata..."
+                  className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange transition-colors resize-none"
+                  rows="4"
                 />
-                <p className="text-xs text-fradiavolo-charcoal-light mt-2">
-                  💡 Puoi inserire solo una nota testuale anche senza modificare le quantità
-                </p>
+              </div>
+
+              {/* Info Modifiche */}
+              <div className="mb-6 p-4 bg-fradiavolo-orange/10 border-l-4 border-fradiavolo-orange rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="h-5 w-5 text-fradiavolo-orange flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-fradiavolo-charcoal">
+                    <strong>Riepilogo modifiche:</strong>
+                    <ul className="mt-2 space-y-1 list-disc list-inside">
+                      <li>
+                        {modificheProdotti.filter(m => m.modificato).length} prodotti modificati
+                      </li>
+                      {noteErrori.trim() && (
+                        <li>Note testuali aggiunte</li>
+                      )}
+                    </ul>
+                    <p className="mt-2 text-fradiavolo-orange font-semibold">
+                      ⚠️ Un file TXT dettagliato verrà generato automaticamente e inviato al fornitore.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-            
-            {/* Footer - Azioni */}
-            <div className="sticky bottom-0 bg-fradiavolo-cream border-t border-fradiavolo-cream-dark p-6 flex space-x-3">
-              <button
-                onClick={() => {
-                  setErrorModalData(null);
-                  setParsedProdotti([]);
-                  setModificheProdotti([]);
-                  setNoteErrori('');
-                }}
-                className="px-6 py-3 bg-fradiavolo-charcoal text-white rounded-xl hover:bg-fradiavolo-charcoal-light transition-all font-semibold shadow-lg"
-              >
-                ❌ Annulla
-              </button>
-              <button
-                onClick={submitErrorReport}
-                disabled={isLoading}
-                className="flex-1 px-6 py-3 bg-fradiavolo-orange hover:bg-fradiavolo-gold text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 flex items-center justify-center space-x-2"
-              >
-                {isLoading ? (
-                  <>
+
+            {/* Footer Modal */}
+            <div className="bg-fradiavolo-cream/30 p-6 border-t border-fradiavolo-cream-dark flex-shrink-0">
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => {
+                    setErrorModalData(null);
+                    setParsedProdotti([]);
+                    setModificheProdotti([]);
+                    setNoteErrori('');
+                  }}
+                  className="px-6 py-3 bg-white border-2 border-fradiavolo-charcoal-light text-fradiavolo-charcoal rounded-xl hover:bg-fradiavolo-cream transition-all font-semibold shadow-md flex items-center space-x-2"
+                  disabled={isLoading}
+                >
+                  <X className="h-5 w-5" />
+                  <span>Annulla</span>
+                </button>
+                <button
+                  onClick={submitErrorReport}
+                  disabled={isLoading}
+                  className="px-6 py-3 bg-fradiavolo-orange hover:bg-fradiavolo-gold text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 flex items-center space-x-2 transform hover:scale-105"
+                >
+                  {isLoading ? (
                     <LoadingSpinner />
-                    <span>Invio in corso...</span>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="h-5 w-5" />
-                    <span>✅ Comunica Errore</span>
-                  </>
-                )}
-              </button>
+                  ) : (
+                    <>
+                      <Save className="h-5 w-5" />
+                      <span>Conferma con Errori</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-            
           </div>
         </div>
       )}
 
-      {/* Modal Editing Invoice */}
+      {/* ========================================== */}
+      {/* ✅ MODAL MODIFICA FATTURA (ADMIN) */}
+      {/* ========================================== */}
       {editingInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-fradiavolo-lg w-full max-w-2xl border border-fradiavolo-cream-dark">
-            <div className="p-6 border-b border-fradiavolo-cream-dark">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-fradiavolo-charcoal/10 rounded-2xl">
-                  <Edit3 className="h-6 w-6 text-fradiavolo-charcoal" />
-                </div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-gradient-to-r from-fradiavolo-orange to-fradiavolo-gold p-6">
+              <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-2xl font-bold text-fradiavolo-charcoal">
+                  <h2 className="text-2xl font-bold text-white mb-2">
                     Modifica Fattura
-                  </h3>
-                  <p className="text-fradiavolo-charcoal-light">
-                    {editingInvoice.numero}
+                  </h2>
+                  <p className="text-white/90">
+                    #{editingInvoice.numero_fattura} - {editingInvoice.fornitore}
                   </p>
                 </div>
+                <button
+                  onClick={() => setEditingInvoice(null)}
+                  className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+                >
+                  <X className="h-6 w-6" />
+                </button>
               </div>
             </div>
 
-            <div className="p-6 space-y-6">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const updates = {
+                  stato: formData.get('stato'),
+                  data_consegna: toISODate(formData.get('data_consegna')),
+                  note: formData.get('note'),
+                  confermato_da: formData.get('confermato_da')
+                };
+                updateInvoice(editingInvoice.id, updates);
+              }}
+              className="p-6 space-y-6"
+            >
               <div>
                 <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                  Data di consegna <span className="text-fradiavolo-red">*</span>
+                  Stato
+                </label>
+                <select
+                  name="stato"
+                  defaultValue={editingInvoice.stato}
+                  className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
+                  required
+                >
+                  <option value="pending">In Attesa</option>
+                  <option value="consegnato">Consegnato</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
+                  Data Consegna
                 </label>
                 <input
                   type="date"
-                  value={editingInvoice.data_consegna || ''}
-                  onChange={(e) => setEditingInvoice(prev => ({ ...prev, data_consegna: e.target.value }))}
-                  max={new Date().toISOString().split('T')[0]}
+                  name="data_consegna"
+                  defaultValue={editingInvoice.data_consegna || ''}
                   className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
                   required
                 />
               </div>
 
-              {user.role === 'admin' && (
-                <div>
-                  <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                    Confermato da (email) <span className="text-fradiavolo-red">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    value={editingInvoice.confermato_da || ''}
-                    onChange={(e) => setEditingInvoice(prev => ({ ...prev, confermato_da: e.target.value }))}
-                    className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                    required
-                  />
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
+                  Email Conferma
+                </label>
+                <input
+                  type="email"
+                  name="confermato_da"
+                  defaultValue={editingInvoice.confermato_da || ''}
+                  className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
+                  required
+                />
+              </div>
 
               <div>
                 <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                  Note (opzionale)
+                  Note
                 </label>
                 <textarea
-                  value={editingInvoice.note || ''}
-                  onChange={(e) => setEditingInvoice(prev => ({ ...prev, note: e.target.value }))}
-                  className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                  rows="3"
-                  placeholder="Eventuali note o problemi di consegna..."
+                  name="note"
+                  defaultValue={editingInvoice.note || ''}
+                  className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors resize-none"
+                  rows="4"
                 />
               </div>
-            </div>
 
-            <div className="p-6 border-t border-fradiavolo-cream-dark flex space-x-3">
-              <button
-                onClick={() => setEditingInvoice(null)}
-                className="px-6 py-3 bg-fradiavolo-charcoal/10 text-fradiavolo-charcoal rounded-xl hover:bg-fradiavolo-charcoal/20 transition-all font-semibold"
-              >
-                Annulla
-              </button>
-              <button
-                onClick={() => {
-                  const updates = {
-                    data_consegna: editingInvoice.data_consegna,
-                    confermato_da: editingInvoice.confermato_da || user.email,
-                    note: editingInvoice.note || ''
-                  };
-                  updateInvoice(editingInvoice.id, updates);
-                }}
-                disabled={isLoading}
-                className="flex-1 px-6 py-3 bg-fradiavolo-red hover:bg-fradiavolo-red/90 text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 flex items-center justify-center space-x-2"
-              >
-                {isLoading ? (
-                  <>
+              <div className="flex justify-end space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setEditingInvoice(null)}
+                  className="px-6 py-3 bg-white border-2 border-fradiavolo-charcoal-light text-fradiavolo-charcoal rounded-xl hover:bg-fradiavolo-cream transition-all font-semibold shadow-md flex items-center space-x-2"
+                >
+                  <X className="h-5 w-5" />
+                  <span>Annulla</span>
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="px-6 py-3 bg-fradiavolo-red hover:bg-fradiavolo-red/90 text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 flex items-center space-x-2 transform hover:scale-105"
+                >
+                  {isLoading ? (
                     <LoadingSpinner />
-                    <span>Salvataggio...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-5 w-5" />
-                    <span>Salva Modifiche</span>
-                  </>
-                )}
-              </button>
-            </div>
+                  ) : (
+                    <>
+                      <Save className="h-5 w-5" />
+                      <span>Salva Modifiche</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      )}
-
-      {/* Footer Admin */}
-      {user?.role === 'admin' && (
-        <footer className="bg-gradient-to-r from-fradiavolo-red to-fradiavolo-orange text-white py-4 mt-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm">
-            Modalità Amministratore Attiva — Accesso completo al sistema
-          </div>
-        </footer>
       )}
     </div>
   );
