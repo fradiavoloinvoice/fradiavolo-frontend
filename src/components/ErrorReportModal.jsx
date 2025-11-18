@@ -8,24 +8,37 @@ const ErrorReportModal = ({ invoice, onClose, onConfirm, isLoading, apiBaseUrl, 
   const [productErrors, setProductErrors] = useState({});
   const [loadingProducts, setLoadingProducts] = useState(true);
 
-  useEffect(() => {
-    const loadDDT = async () => {
-      try {
-        setLoadingProducts(true);
-        const response = await fetch(`${apiBaseUrl}/invoices/${invoice.id}/parse-ddt`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+  // ✅ NUOVO: Pre-carica errori esistenti se in modalità modifica
+useEffect(() => {
+  if (invoice.existingErrors && invoice.isEditMode) {
+    console.log('🔄 Pre-caricamento errori esistenti:', invoice.existingErrors);
+    
+    // Pre-compila note testuali
+    if (invoice.existingErrors.note_testuali) {
+      setNoteTestuali(invoice.existingErrors.note_testuali);
+    }
+    
+    // Pre-compila modifiche prodotti
+    if (invoice.existingErrors.modifiche && Array.isArray(invoice.existingErrors.modifiche)) {
+      setProdotti(prev => prev.map(prodotto => {
+        const modificaEsistente = invoice.existingErrors.modifiche.find(
+          m => m.riga_numero === prodotto.riga_numero
+        );
         
-        if (response.ok) {
-          const data = await response.json();
-          setParsedProducts(data.prodotti || []);
+        if (modificaEsistente) {
+          return {
+            ...prodotto,
+            modificato: true,
+            quantita_ricevuta: modificaEsistente.quantita_ricevuta,
+            motivo: modificaEsistente.motivo || ''
+          };
         }
-      } catch (error) {
-        console.error('Errore caricamento DDT:', error);
-      } finally {
-        setLoadingProducts(false);
-      }
-    };
+        
+        return prodotto;
+      }));
+    }
+  }
+}, [invoice.existingErrors, invoice.isEditMode]);
 
     loadDDT();
   }, [invoice.id, apiBaseUrl, token]);
