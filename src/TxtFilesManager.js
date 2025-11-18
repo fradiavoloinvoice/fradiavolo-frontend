@@ -639,27 +639,132 @@ const TxtFilesManager = () => {
                 <div className="text-fradiavolo-charcoal-light text-sm">Caricamento contenuto...</div>
               ) : (
                 <>
-                  {errorDetails?.note_errori && (
-                    <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-sm">
-                      <div className="font-semibold text-red-700 mb-1 flex items-center gap-1">
-                        <AlertCircle className="h-4 w-4" />
-                        Errore segnalato in consegna
-                      </div>
-                      <div className="text-red-900">{errorDetails.note_errori}</div>
-                    </div>
-                  )}
 
-                  {(errorDetails?.item_noconv || errorDetails?.errore_conversione) && (
-                    <div className="p-3 rounded-lg border border-orange-200 bg-orange-50 text-sm">
-                      <div className="font-semibold text-orange-700 mb-1 flex items-center gap-1">
-                        <AlertCircle className="h-4 w-4" />
-                        Errore di conversione
-                      </div>
-                      <div className="text-orange-900">
-                        {errorDetails.item_noconv || errorDetails.errore_conversione}
-                      </div>
+                  {errorDetails?.errori_consegna && (
+  <div className="p-4 rounded-lg border border-red-200 bg-red-50">
+    <div className="flex items-center justify-between mb-3">
+      <div className="font-semibold text-red-700 flex items-center gap-2">
+        <AlertCircle className="h-5 w-5" />
+        Errori Segnalati alla Consegna
+      </div>
+      <span className="text-xs text-red-600">
+        {new Date(errorDetails.errori_consegna.timestamp).toLocaleString('it-IT')}
+      </span>
+    </div>
+
+    {/* Informazioni generali */}
+    <div className="mb-3 p-3 bg-white rounded-lg border border-red-100">
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <div>
+          <span className="text-fradiavolo-charcoal-light">Data consegna:</span>
+          <span className="ml-2 font-semibold text-fradiavolo-charcoal">
+            {new Date(errorDetails.errori_consegna.data_consegna).toLocaleDateString('it-IT')}
+          </span>
+        </div>
+        <div>
+          <span className="text-fradiavolo-charcoal-light">Segnalato da:</span>
+          <span className="ml-2 font-semibold text-fradiavolo-charcoal">
+            {errorDetails.errori_consegna.utente}
+          </span>
+        </div>
+        <div>
+          <span className="text-fradiavolo-charcoal-light">Righe modificate:</span>
+          <span className="ml-2 font-semibold text-red-700">
+            {errorDetails.errori_consegna.righe_modificate || 0} / {errorDetails.errori_consegna.totale_righe || 0}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {/* Modifiche ai prodotti */}
+    {errorDetails.errori_consegna.modifiche && errorDetails.errori_consegna.modifiche.length > 0 && (
+      <div className="mb-3">
+        <div className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1">
+          <Package className="h-4 w-4" />
+          Modifiche ai Prodotti ({errorDetails.errori_consegna.modifiche.length})
+        </div>
+        <div className="space-y-2">
+          {errorDetails.errori_consegna.modifiche.map((modifica, index) => (
+            <div key={index} className="p-3 rounded-lg bg-white border border-red-200">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex-1">
+                  <div className="font-semibold text-fradiavolo-charcoal text-sm">
+                    Riga {modifica.riga_numero}: {modifica.nome || modifica.prodotto_originale}
+                  </div>
+                  {modifica.codice && (
+                    <div className="text-xs text-fradiavolo-charcoal-light mt-1">
+                      Codice: {modifica.codice}
                     </div>
                   )}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="p-2 rounded bg-red-50 border border-red-100">
+                  <div className="text-xs text-fradiavolo-charcoal-light mb-1">Ordinato</div>
+                  <div className="font-semibold text-sm text-fradiavolo-charcoal">
+                    {modifica.quantita_originale} {modifica.unita_misura || ''}
+                  </div>
+                </div>
+                <div className="p-2 rounded bg-green-50 border border-green-200">
+                  <div className="text-xs text-fradiavolo-charcoal-light mb-1">Ricevuto</div>
+                  <div className="font-semibold text-sm text-fradiavolo-green">
+                    {modifica.quantita_ricevuta} {modifica.unita_misura || ''}
+                  </div>
+                </div>
+              </div>
+
+              {modifica.motivo && modifica.motivo.trim() !== '' && (
+                <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                  <div className="text-xs font-semibold text-yellow-800 mb-1">Motivo:</div>
+                  <div className="text-xs text-yellow-900 italic">{modifica.motivo}</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+
+    {/* Note testuali */}
+    {errorDetails.errori_consegna.note_testuali && errorDetails.errori_consegna.note_testuali.trim() !== '' && (
+      <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+        <div className="text-sm font-semibold text-yellow-800 mb-2 flex items-center gap-1">
+          <MessageCircle className="h-4 w-4" />
+          Note Aggiuntive
+        </div>
+        <div className="text-sm text-yellow-900 whitespace-pre-wrap">
+          {errorDetails.errori_consegna.note_testuali}
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
+{/* ========================================= */}
+{/* ERRORI LEGACY (backward compatibility) */}
+{/* ========================================= */}
+{errorDetails?.note_errori && !errorDetails?.errori_consegna && (
+  <div className="p-3 rounded-lg border border-orange-200 bg-orange-50 text-sm">
+    <div className="font-semibold text-orange-700 mb-2 flex items-center gap-1">
+      <AlertCircle className="h-4 w-4" />
+      Errore segnalato in consegna (formato legacy)
+    </div>
+    <div className="text-orange-900">{errorDetails.note_errori}</div>
+  </div>
+)}
+
+{errorDetails?.item_noconv && (
+  <div className="p-3 rounded-lg border border-orange-200 bg-orange-50 text-sm">
+    <div className="font-semibold text-orange-700 mb-2 flex items-center gap-1">
+      <AlertCircle className="h-4 w-4" />
+      Errore di conversione (formato legacy)
+    </div>
+    <div className="text-orange-900">{errorDetails.item_noconv}</div>
+  </div>
+)}
+
+                  
 
                   {/* ✅ NUOVO: Box Storico Modifiche */}
                   {isModified && storicoModifiche && storicoModifiche.length > 0 && (
