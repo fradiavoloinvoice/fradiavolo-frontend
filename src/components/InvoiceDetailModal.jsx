@@ -21,6 +21,8 @@ import HistorySection from './HistorySection';
  * Include: Info generali, Errori, Cronologia, File TXT
  */
 const InvoiceDetailModal = ({ invoice, onClose }) => {
+    const API_URL = 'https://fradiavolo-backend.onrender.com';
+
   const [activeTab, setActiveTab] = useState('info');
   const [errorsData, setErrorsData] = useState(null);
   const [historyData, setHistoryData] = useState(null);
@@ -45,7 +47,7 @@ const InvoiceDetailModal = ({ invoice, onClose }) => {
     setLoadingErrors(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/invoices/${invoice.id}/errors`, {
+  const response = await fetch(`${API_URL}/api/invoices/${invoice.id}/errors`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -64,7 +66,7 @@ const InvoiceDetailModal = ({ invoice, onClose }) => {
     setLoadingHistory(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/invoices/${invoice.id}/history`, {
+  const response = await fetch(`${API_URL}/api/invoices/${invoice.id}/history`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
