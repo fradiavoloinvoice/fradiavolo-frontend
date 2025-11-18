@@ -832,13 +832,96 @@ const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !==
                                     {hasErrors && <span className="text-fradiavolo-red ml-2">(Con errori)</span>}
                                     {!hasErrors && <span className="text-fradiavolo-green ml-2 text-sm">📄 File TXT generato</span>}
                                   </p>
-                                  {hasErrors && (
-                                    <div className="mt-3 p-3 bg-fradiavolo-orange/10 rounded-lg border border-fradiavolo-orange/30">
-                                      <p className="text-sm font-semibold text-fradiavolo-red mb-1">📝 Note errori:</p>
-                                      <p className="text-sm text-fradiavolo-charcoal italic">"{invoice.note}"</p>
-                                      <p className="text-xs text-fradiavolo-orange mt-1">📄 File TXT generato comunque</p>
-                                    </div>
-                                  )}
+
+                                {hasErrors && (
+  <div className="mt-3">
+    {/* ERRORI STRUTTURATI (nuovo formato) */}
+    {(() => {
+      try {
+        const erroriParsed = invoice.errori_consegna ? JSON.parse(invoice.errori_consegna) : null;
+        if (erroriParsed) {
+          return (
+            <div className="p-4 rounded-lg border border-red-200 bg-red-50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-red-700 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Errori Segnalati alla Consegna
+                </div>
+                <span className="text-xs text-red-600">
+                  {new Date(erroriParsed.timestamp).toLocaleString('it-IT')}
+                </span>
+              </div>
+
+              {/* Modifiche prodotti */}
+              {erroriParsed.modifiche && erroriParsed.modifiche.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1">
+                    <Package className="h-4 w-4" />
+                    Modifiche ai Prodotti ({erroriParsed.modifiche.length})
+                  </div>
+                  <div className="space-y-2">
+                    {erroriParsed.modifiche.map((mod, idx) => (
+                      <div key={idx} className="p-3 rounded-lg bg-white border border-red-200">
+                        <div className="font-semibold text-fradiavolo-charcoal text-sm mb-2">
+                          Riga {mod.riga_numero}: {mod.nome || mod.prodotto_originale}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="p-2 rounded bg-red-50 border border-red-100">
+                            <span className="text-xs text-fradiavolo-charcoal-light">Ordinato:</span>
+                            <span className="ml-1 font-semibold">{mod.quantita_originale} {mod.unita_misura}</span>
+                          </div>
+                          <div className="p-2 rounded bg-green-50 border border-green-200">
+                            <span className="text-xs text-fradiavolo-charcoal-light">Ricevuto:</span>
+                            <span className="ml-1 font-semibold text-fradiavolo-green">{mod.quantita_ricevuta} {mod.unita_misura}</span>
+                          </div>
+                        </div>
+                        {mod.motivo && (
+                          <div className="mt-2 text-xs italic text-yellow-800 bg-yellow-50 p-2 rounded">
+                            {mod.motivo}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Note testuali */}
+              {erroriParsed.note_testuali && (
+                <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                  <div className="text-sm font-semibold text-yellow-800 mb-2 flex items-center gap-1">
+                    <MessageCircle className="h-4 w-4" />
+                    Note Aggiuntive
+                  </div>
+                  <div className="text-sm text-yellow-900 whitespace-pre-wrap">
+                    {erroriParsed.note_testuali}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+      } catch (e) {
+        console.error('Errore parsing errori_consegna:', e);
+      }
+
+      // FALLBACK: Errori legacy (note)
+      if (invoice.note && invoice.note.trim() !== '') {
+        return (
+          <div className="p-3 rounded-lg border border-orange-200 bg-orange-50">
+            <p className="text-sm font-semibold text-fradiavolo-red mb-1">📝 Note errori (legacy):</p>
+            <p className="text-sm text-fradiavolo-charcoal italic">"{invoice.note}"</p>
+            <p className="text-xs text-fradiavolo-orange mt-1">📄 File TXT generato comunque</p>
+          </div>
+        );
+      }
+
+      return null;
+    })()}
+  </div>
+)}
+
+                                      
                                 </div>
                               </div>
                             </div>
@@ -1261,12 +1344,92 @@ const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !==
                                     {!hasErrors && <span className="text-fradiavolo-green ml-2 text-sm">📄 File TXT generato</span>}
                                   </p>
                                   {hasErrors && (
-                                    <div className="mt-3 p-3 bg-fradiavolo-orange/10 rounded-lg border border-fradiavolo-orange/30">
-                                      <p className="text-sm font-semibold text-fradiavolo-red mb-1">📝 Note errori:</p>
-                                      <p className="text-sm text-fradiavolo-charcoal italic">"{invoice.note}"</p>
-                                      <p className="text-xs text-fradiavolo-orange mt-1">📄 File TXT generato comunque</p>
-                                    </div>
-                                  )}
+  <div className="mt-3">
+    {/* ERRORI STRUTTURATI (nuovo formato) */}
+    {(() => {
+      try {
+        const erroriParsed = invoice.errori_consegna ? JSON.parse(invoice.errori_consegna) : null;
+        if (erroriParsed) {
+          return (
+            <div className="p-4 rounded-lg border border-red-200 bg-red-50">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-red-700 flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" />
+                  Errori Segnalati alla Consegna
+                </div>
+                <span className="text-xs text-red-600">
+                  {new Date(erroriParsed.timestamp).toLocaleString('it-IT')}
+                </span>
+              </div>
+
+              {/* Modifiche prodotti */}
+              {erroriParsed.modifiche && erroriParsed.modifiche.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1">
+                    <Package className="h-4 w-4" />
+                    Modifiche ai Prodotti ({erroriParsed.modifiche.length})
+                  </div>
+                  <div className="space-y-2">
+                    {erroriParsed.modifiche.map((mod, idx) => (
+                      <div key={idx} className="p-3 rounded-lg bg-white border border-red-200">
+                        <div className="font-semibold text-fradiavolo-charcoal text-sm mb-2">
+                          Riga {mod.riga_numero}: {mod.nome || mod.prodotto_originale}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="p-2 rounded bg-red-50 border border-red-100">
+                            <span className="text-xs text-fradiavolo-charcoal-light">Ordinato:</span>
+                            <span className="ml-1 font-semibold">{mod.quantita_originale} {mod.unita_misura}</span>
+                          </div>
+                          <div className="p-2 rounded bg-green-50 border border-green-200">
+                            <span className="text-xs text-fradiavolo-charcoal-light">Ricevuto:</span>
+                            <span className="ml-1 font-semibold text-fradiavolo-green">{mod.quantita_ricevuta} {mod.unita_misura}</span>
+                          </div>
+                        </div>
+                        {mod.motivo && (
+                          <div className="mt-2 text-xs italic text-yellow-800 bg-yellow-50 p-2 rounded">
+                            {mod.motivo}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Note testuali */}
+              {erroriParsed.note_testuali && (
+                <div className="p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                  <div className="text-sm font-semibold text-yellow-800 mb-2 flex items-center gap-1">
+                    <MessageCircle className="h-4 w-4" />
+                    Note Aggiuntive
+                  </div>
+                  <div className="text-sm text-yellow-900 whitespace-pre-wrap">
+                    {erroriParsed.note_testuali}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        }
+      } catch (e) {
+        console.error('Errore parsing errori_consegna:', e);
+      }
+
+      // FALLBACK: Errori legacy (note)
+      if (invoice.note && invoice.note.trim() !== '') {
+        return (
+          <div className="p-3 rounded-lg border border-orange-200 bg-orange-50">
+            <p className="text-sm font-semibold text-fradiavolo-red mb-1">📝 Note errori (legacy):</p>
+            <p className="text-sm text-fradiavolo-charcoal italic">"{invoice.note}"</p>
+            <p className="text-xs text-fradiavolo-orange mt-1">📄 File TXT generato comunque</p>
+          </div>
+        );
+      }
+
+      return null;
+    })()}
+  </div>
+)}
                                 </div>
                               </div>
                             </div>
