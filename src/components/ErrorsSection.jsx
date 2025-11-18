@@ -16,9 +16,12 @@ const ErrorsSection = ({ errorDetails }) => {
     );
   }
 
-  const hasStructuredErrors = errorDetails.errori_consegna && 
-                               errorDetails.errori_consegna.modifiche && 
-                               errorDetails.errori_consegna.modifiche.length > 0;
+  // ✅ SUPPORTA ENTRAMBI I NOMI: errori_strutturati (nuovo) e errori_consegna (vecchio)
+  const erroriStrutturati = errorDetails.errori_strutturati || errorDetails.errori_consegna;
+  
+  const hasStructuredErrors = erroriStrutturati && 
+                               erroriStrutturati.modifiche && 
+                               erroriStrutturati.modifiche.length > 0;
   
   const hasLegacyNotes = errorDetails.note_errori_legacy && 
                          errorDetails.note_errori_legacy.trim() !== '';
@@ -60,24 +63,24 @@ const ErrorsSection = ({ errorDetails }) => {
           <div className="flex items-center gap-2 text-orange-600">
             <Package size={20} />
             <h4 className="font-semibold">
-              Modifiche Prodotti ({errorDetails.errori_consegna.righe_modificate} su {errorDetails.errori_consegna.totale_righe})
+              Modifiche Prodotti ({erroriStrutturati.righe_modificate} su {erroriStrutturati.totale_righe})
             </h4>
           </div>
 
           {/* Timestamp segnalazione */}
-          {errorDetails.errori_consegna.timestamp && (
+          {erroriStrutturati.timestamp && (
             <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 p-2 rounded">
               <Clock size={16} />
               <span>
-                Segnalato il {new Date(errorDetails.errori_consegna.timestamp).toLocaleString('it-IT')}
-                {errorDetails.errori_consegna.utente && ` da ${errorDetails.errori_consegna.utente}`}
+                Segnalato il {new Date(erroriStrutturati.timestamp).toLocaleString('it-IT')}
+                {erroriStrutturati.utente && ` da ${erroriStrutturati.utente}`}
               </span>
             </div>
           )}
 
           {/* Lista Modifiche */}
           <div className="space-y-3">
-            {errorDetails.errori_consegna.modifiche.map((modifica, index) => (
+            {erroriStrutturati.modifiche.map((modifica, index) => (
               <div 
                 key={index}
                 className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm hover:shadow-md transition-shadow"
@@ -123,15 +126,15 @@ const ErrorsSection = ({ errorDetails }) => {
           </div>
 
           {/* Note Testuali Strutturate */}
-          {errorDetails.errori_consegna.note_testuali && 
-           errorDetails.errori_consegna.note_testuali.trim() !== '' && (
+          {erroriStrutturati.note_testuali && 
+           erroriStrutturati.note_testuali.trim() !== '' && (
             <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
               <div className="flex items-start gap-2">
                 <FileText className="text-green-600 flex-shrink-0 mt-1" size={20} />
                 <div className="flex-1">
                   <h4 className="font-semibold text-gray-900 mb-2">Note Aggiuntive</h4>
                   <p className="text-gray-700 whitespace-pre-wrap">
-                    {errorDetails.errori_consegna.note_testuali}
+                    {erroriStrutturati.note_testuali}
                   </p>
                 </div>
               </div>
