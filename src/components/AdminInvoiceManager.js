@@ -15,6 +15,7 @@ import {
   Building2
 } from 'lucide-react';
 import InvoiceDetailModal from './InvoiceDetailModal';
+const API_URL = 'https://fradiavolo-backend.onrender.com';
 
 const AdminInvoiceManager = () => {
   // ==========================================
@@ -64,7 +65,7 @@ const AdminInvoiceManager = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/invoices', {
+      const response = await fetch(`${API_URL}/api/admin/invoices`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -94,7 +95,7 @@ const AdminInvoiceManager = () => {
   const fetchStores = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/stores', {
+      const response = await fetch(`${API_URL}/api/admin/stores`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -202,7 +203,7 @@ const AdminInvoiceManager = () => {
     try {
       // Fetch dettaglio completo fattura con flag has_errors e has_history
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/invoices/${invoice.id}`, {
+      const response = await fetch(`${API_URL}/api/invoices/${invoice.id}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -235,7 +236,7 @@ const AdminInvoiceManager = () => {
   const handleExport = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/admin/export?type=invoices&format=json', {
+      const response = await fetch(`${API_URL}/api/admin/export?type=invoices&format=json`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
