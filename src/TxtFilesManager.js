@@ -781,21 +781,36 @@ const TxtFilesManager = () => {
         let displayValueNew = modifica.valore_nuovo;
         
         if (isErroriConsegna) {
-          try {
-            const erroriNew = JSON.parse(modifica.valore_nuovo);
-            const righeModificate = erroriNew.righe_modificate || 0;
-            const totaleRighe = erroriNew.totale_righe || 0;
-            const hasNote = erroriNew.note_testuali && erroriNew.note_testuali.trim() !== '';
-            
-            displayValueNew = `✏️ ${righeModificate}/${totaleRighe} prodotti modificati${hasNote ? ' + note testuali' : ''}`;
-            displayValuePrev = modifica.valore_precedente === '' || !modifica.valore_precedente 
-              ? 'Nessun errore segnalato' 
-              : 'Errori precedenti';
-          } catch (e) {
-            console.error('Errore parsing errori_consegna nello storico:', e);
-            displayValueNew = 'Errori segnalati (formato non leggibile)';
-          }
-        }
+  try {
+    // Parse del valore NUOVO
+    const erroriNew = JSON.parse(modifica.valore_nuovo);
+    const righeModificateNew = erroriNew.righe_modificate || 0;
+    const totaleRigheNew = erroriNew.totale_righe || 0;
+    const hasNoteNew = erroriNew.note_testuali && erroriNew.note_testuali.trim() !== '';
+    
+    displayValueNew = `✏️ ${righeModificateNew}/${totaleRigheNew} prodotti modificati${hasNoteNew ? ' + note testuali' : ''}`;
+    
+    // ✅ Parse del valore PRECEDENTE
+    if (!modifica.valore_precedente || modifica.valore_precedente === '') {
+      displayValuePrev = 'Nessun errore segnalato';
+    } else {
+      try {
+        const erroriPrev = JSON.parse(modifica.valore_precedente);
+        const righeModificatePrev = erroriPrev.righe_modificate || 0;
+        const totaleRighePrev = erroriPrev.totale_righe || 0;
+        const hasNotePrev = erroriPrev.note_testuali && erroriPrev.note_testuali.trim() !== '';
+        
+        displayValuePrev = `✏️ ${righeModificatePrev}/${totaleRighePrev} prodotti modificati${hasNotePrev ? ' + note testuali' : ''}`;
+      } catch (prevParseError) {
+        // Se il valore precedente non è un JSON valido, mostralo come testo
+        displayValuePrev = 'Errori segnalati (formato legacy)';
+      }
+    }
+  } catch (e) {
+    console.error('Errore parsing errori_consegna nello storico:', e);
+    displayValueNew = 'Errori segnalati (formato non leggibile)';
+  }
+}
         
         return (
           <div key={index} className="p-3 rounded-lg bg-white border border-blue-200">
