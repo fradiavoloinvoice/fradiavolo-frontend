@@ -764,53 +764,80 @@ const TxtFilesManager = () => {
   </div>
 )}
 
-                  
-
                   {/* ✅ NUOVO: Box Storico Modifiche */}
-                  {isModified && storicoModifiche && storicoModifiche.length > 0 && (
-                    <div className="p-4 rounded-lg border border-blue-200 bg-blue-50">
-                      <div className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
-                        <Clock className="h-5 w-5" />
-                        Storico Modifiche ({storicoModifiche.length})
-                      </div>
-                      <div className="space-y-3">
-                        {/* ✅ Ordina per timestamp decrescente (più recente prima) */}
-                        {[...storicoModifiche].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map((modifica, index) => (
-                          <div key={index} className="p-3 rounded-lg bg-white border border-blue-200">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <Users className="h-4 w-4 text-blue-600" />
-                                <span className="text-sm font-semibold text-blue-900">
-                                  Modifica #{storicoModifiche.length - index}
-                                </span>
-                              </div>
-                              <span className="text-xs text-blue-600">
-                                {modifica.data_modifica}
-                              </span>
-                            </div>
-                            <div className="space-y-1 text-sm">
-                              <div className="flex items-center gap-2">
-                                <span className="text-fradiavolo-charcoal-light">Campo:</span>
-                                <span className="font-semibold text-fradiavolo-charcoal">{modifica.campo}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-fradiavolo-charcoal-light">Da:</span>
-                                <span className="text-red-700 line-through">"{modifica.valore_precedente}"</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-fradiavolo-charcoal-light">A:</span>
-                                <span className="text-green-700 font-semibold">"{modifica.valore_nuovo}"</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-fradiavolo-charcoal-light">Modificato da:</span>
-                                <span className="text-fradiavolo-charcoal">{modifica.modificato_da}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+{isModified && storicoModifiche && storicoModifiche.length > 0 && (
+  <div className="p-4 rounded-lg border border-blue-200 bg-blue-50">
+    <div className="font-semibold text-blue-700 mb-3 flex items-center gap-2">
+      <Clock className="h-5 w-5" />
+      Storico Modifiche ({storicoModifiche.length})
+    </div>
+    <div className="space-y-3">
+      {/* ✅ Ordina per timestamp decrescente (più recente prima) */}
+      {[...storicoModifiche].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)).map((modifica, index) => {
+        // ✅ Gestione speciale per errori_consegna
+        const isErroriConsegna = modifica.campo === 'errori_consegna';
+        
+        let displayValuePrev = modifica.valore_precedente || '---';
+        let displayValueNew = modifica.valore_nuovo;
+        
+        if (isErroriConsegna) {
+          try {
+            const erroriNew = JSON.parse(modifica.valore_nuovo);
+            const righeModificate = erroriNew.righe_modificate || 0;
+            const totaleRighe = erroriNew.totale_righe || 0;
+            const hasNote = erroriNew.note_testuali && erroriNew.note_testuali.trim() !== '';
+            
+            displayValueNew = `✏️ ${righeModificate}/${totaleRighe} prodotti modificati${hasNote ? ' + note testuali' : ''}`;
+            displayValuePrev = modifica.valore_precedente === '' || !modifica.valore_precedente 
+              ? 'Nessun errore segnalato' 
+              : 'Errori precedenti';
+          } catch (e) {
+            console.error('Errore parsing errori_consegna nello storico:', e);
+            displayValueNew = 'Errori segnalati (formato non leggibile)';
+          }
+        }
+        
+        return (
+          <div key={index} className="p-3 rounded-lg bg-white border border-blue-200">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-semibold text-blue-900">
+                  Modifica #{storicoModifiche.length - index}
+                </span>
+              </div>
+              <span className="text-xs text-blue-600">
+                {modifica.data_modifica}
+              </span>
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-fradiavolo-charcoal-light">Campo:</span>
+                <span className={`font-semibold ${isErroriConsegna ? 'text-orange-600' : 'text-fradiavolo-charcoal'}`}>
+                  {isErroriConsegna ? '⚠️ Errori Consegna' : modifica.campo}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-fradiavolo-charcoal-light">Da:</span>
+                <span className="text-red-700 line-through">"{displayValuePrev}"</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-fradiavolo-charcoal-light">A:</span>
+                <span className={`font-semibold ${isErroriConsegna ? 'text-orange-600' : 'text-green-700'}`}>
+                  "{displayValueNew}"
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-fradiavolo-charcoal-light">Modificato da:</span>
+                <span className="text-fradiavolo-charcoal">{modifica.modificato_da}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
 
                   <div className="bg-fradiavolo-cream rounded-lg border border-fradiavolo-cream-dark p-3">
                     <div className="flex items-center justify-between mb-2">
