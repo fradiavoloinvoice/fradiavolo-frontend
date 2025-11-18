@@ -35,7 +35,6 @@ const InvoiceProcessorApp = () => {
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('admin-dashboard');
-  const [editingInvoice, setEditingInvoice] = useState(null);
   const [errorModalInvoice, setErrorModalInvoice] = useState(null);
   const [errorNotes, setErrorNotes] = useState('');
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
@@ -252,7 +251,7 @@ const InvoiceProcessorApp = () => {
     setLoginForm({ email: '', password: '' });
     setActiveTab('pending');
     setSelectedInvoice(null);
-    setEditingInvoice(null);
+
     setSheetInvoices([]);
     setSuccess('Logout effettuato con successo!');
     setTimeout(() => setSuccess(''), 3000);
@@ -351,7 +350,7 @@ const InvoiceProcessorApp = () => {
       });
 
       setSuccess('✅ Fattura aggiornata con successo! Verificando su Google Sheets...');
-      setEditingInvoice(null);
+   
 
       // Ricarica i dati dopo 3 secondi per conferma
       setTimeout(() => {
