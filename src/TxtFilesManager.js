@@ -18,6 +18,8 @@ import {
  * Gestione File TXT
  * Interfaccia semplificata per visualizzare, scaricare ed eliminare file TXT generati
  */
+const API_BASE_URL = 'https://fradiavolo-backend.onrender.com/api';
+
 const TxtFilesManager = () => {
   // ==========================================
   // STATE MANAGEMENT
