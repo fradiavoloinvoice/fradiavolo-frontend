@@ -792,7 +792,9 @@ const InvoiceProcessorApp = () => {
                 ) : (
                   <div className="grid gap-6">
                     {deliveredInvoices.map((invoice) => {
-                      const hasErrors = invoice.note && invoice.note.trim() !== '';
+                      // ✅ Controlla sia errori_consegna (nuovo) che note (legacy)
+const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !== '') 
+                 || (invoice.note && invoice.note.trim() !== '');
                       return (
                         <div
                           key={invoice.id}
@@ -1218,7 +1220,9 @@ const InvoiceProcessorApp = () => {
                 ) : (
                   <div className="grid gap-6">
                     {deliveredInvoices.map((invoice) => {
-                      const hasErrors = invoice.note && invoice.note.trim() !== '';
+                      // ✅ Controlla sia errori_consegna (nuovo) che note (legacy)
+const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !== '') 
+                 || (invoice.note && invoice.note.trim() !== '');
                       return (
                         <div
                           key={invoice.id}
