@@ -1,6 +1,6 @@
 // frontend/src/pages/admin/TxtFilesManager.jsx - Con tracking modifiche
 import React, { useEffect, useMemo, useState } from 'react';
-import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck, Clock, Users } from 'lucide-react';
+import { Eye, Download, X, FileText, RefreshCw, Filter, Search, AlertCircle, Edit3, Save, Trash2, Package, Truck, Clock, Users, MessageCircle } from 'lucide-react';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
