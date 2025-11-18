@@ -1,133 +1,286 @@
-// /components/AdminInvoiceManager.js
+// frontend/src/components/AdminInvoiceManager.js
 import React, { useState, useEffect } from 'react';
-import {
-  FileText, Calendar, MapPin, Package, CheckCircle,
-  Clock, Search, Filter, Eye, X, FileCheck, Store, Truck,
-  ArrowUpDown, ArrowUp, ArrowDown
+import { 
+  Search, 
+  Filter, 
+  Download, 
+  RefreshCw, 
+  AlertCircle, 
+  Clock,
+  FileText,
+  Eye,
+  Package,
+  TrendingUp,
+  Calendar,
+  Building2
 } from 'lucide-react';
-
-// 🔧 Normalizza la base URL: rimuove un eventuale "/api" e lo slash finale
-const RAW_API = process.env.REACT_APP_API_URL || 'http://localhost:3001';
-const API_BASE = RAW_API.replace(/\/api\/?$/, '').replace(/\/$/, '');
-const API_URL  = `${API_BASE}/api`; // usare sempre API_URL + '/...'
+import InvoiceDetailModal from './InvoiceDetailModal';
 
 const AdminInvoiceManager = () => {
+  // ==========================================
+  // STATE MANAGEMENT
+  // ==========================================
   const [invoices, setInvoices] = useState([]);
+  const [filteredInvoices, setFilteredInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [storeFilter, setStoreFilter] = useState('all');
-  const [supplierFilter, setSupplierFilter] = useState('all');
-  const [selectedDDT, setSelectedDDT] = useState(null);
-  const [showDDTModal, setShowDDTModal] = useState(false);
+  const [error, setError] = useState(null);
   
-  // ✅ NUOVO: Stato per ordinamento
-  const [sortOrder, setSortOrder] = useState('desc'); // 'asc' | 'desc'
+  // Filtri
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStore, setFilterStore] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('ALL');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [showErrorsOnly, setShowErrorsOnly] = useState(false);
+  const [showModifiedOnly, setShowModifiedOnly] = useState(false);
+  
+  // Modale dettaglio
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  
+  // Liste per dropdown
+  const [stores, setStores] = useState([]);
+  
+  // Statistiche
+  const [stats, setStats] = useState({
+    total: 0,
+    consegnate: 0,
+    pending: 0,
+    withErrors: 0,
+    modified: 0
+  });
 
+  // ==========================================
+  // FETCH DATA
+  // ==========================================
   useEffect(() => {
-    loadInvoices();
+    fetchInvoices();
+    fetchStores();
   }, []);
 
-  // Carica e normalizza dati dall'API admin
-  const loadInvoices = async () => {
+  const fetchInvoices = async () => {
+    setLoading(true);
+    setError(null);
+    
     try {
-      setLoading(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/admin/invoices`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch('/api/admin/invoices', {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!res.ok) throw new Error('Errore nel caricamento fatture');
-
-      const payload = await res.json();
-      const rows = Array.isArray(payload) ? payload : payload.data || [];
-
-      const normalized = rows.map(r => ({
-        id: r.id ?? r.ID ?? r.row_id,
-        numeroFattura: r.numero ?? r.numero_fattura ?? '',
-        fornitore: r.fornitore ?? '',
-        dataEmissione: r.data_emissione ?? '',
-        dataConsegna: r.data_consegna ?? '',
-        puntoVendita: r.punto_vendita ?? r.store ?? '',
-        consegnato: r.stato === 'consegnato' || r.consegnato === true,
-        testoDDT: r.testo_ddt ?? r.ddt_text ?? ''
-      }));
-
-      setInvoices(normalized);
+      
+      if (!response.ok) throw new Error('Errore caricamento fatture');
+      
+      const data = await response.json();
+      setInvoices(data.data);
+      
+      // Calcola statistiche
+      const stats = {
+        total: data.data.length,
+        consegnate: data.data.filter(inv => inv.stato === 'consegnato').length,
+        pending: data.data.filter(inv => inv.stato === 'pending').length,
+        withErrors: data.data.filter(inv => hasErrors(inv)).length,
+        modified: data.data.filter(inv => hasHistory(inv)).length
+      };
+      setStats(stats);
+      
     } catch (err) {
-      console.error(err);
-      alert('Errore nel caricamento delle fatture');
+      console.error('Errore fetch fatture:', err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleViewDDT = (invoice) => {
-    setSelectedDDT({
-      numeroFattura: invoice.numeroFattura,
-      fornitore: invoice.fornitore,
-      dataEmissione: invoice.dataEmissione,
-      dataConsegna: invoice.dataConsegna,
-      puntoVendita: invoice.puntoVendita,
-      testoDDT: invoice.testoDDT || 'Nessun DDT disponibile'
-    });
-    setShowDDTModal(true);
+  const fetchStores = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/admin/stores', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) throw new Error('Errore caricamento negozi');
+      
+      const data = await response.json();
+      setStores(data.stores);
+    } catch (err) {
+      console.error('Errore fetch negozi:', err);
+    }
   };
 
-  // ✅ Toggle ordinamento
-  const toggleSortOrder = () => {
-    setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
-  };
-
-  const uniqueStores = [...new Set(invoices.map(inv => inv.puntoVendita))].filter(Boolean).sort();
-  const uniqueSuppliers = [...new Set(invoices.map(inv => inv.fornitore))].filter(Boolean).sort();
-
-  // Filtri
-  const filteredInvoices = invoices.filter(inv => {
-    const q = searchTerm.toLowerCase();
-    const matchesSearch =
-      (inv.numeroFattura || '').toLowerCase().includes(q) ||
-      (inv.fornitore || '').toLowerCase().includes(q) ||
-      (inv.puntoVendita || '').toLowerCase().includes(q);
-
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (statusFilter === 'confirmed' && inv.consegnato) ||
-      (statusFilter === 'pending' && !inv.consegnato);
-
-    const matchesStore =
-      storeFilter === 'all' ||
-      inv.puntoVendita === storeFilter;
-
-    const matchesSupplier =
-      supplierFilter === 'all' ||
-      inv.fornitore === supplierFilter;
-
-    return matchesSearch && matchesStatus && matchesStore && matchesSupplier;
-  });
-
-  // ✅ Ordinamento per data
-  const sortedInvoices = [...filteredInvoices].sort((a, b) => {
-    const dateA = new Date(a.dataEmissione || '1970-01-01');
-    const dateB = new Date(b.dataEmissione || '1970-01-01');
+  // ==========================================
+  // HELPER FUNCTIONS
+  // ==========================================
+  
+  // Verifica presenza errori (supporta sia nuovo formato che legacy)
+  const hasErrors = (invoice) => {
+    const erroriConsegna = String(invoice.errori_consegna || '').trim();
+    const note = String(invoice.note || '').trim();
+    const itemNoConv = String(invoice.item_noconv || '').trim();
     
-    return sortOrder === 'desc' 
-      ? dateB - dateA  // Decrescente (più recente prima)
-      : dateA - dateB; // Crescente (più vecchia prima)
-  });
-
-  const stats = {
-    total: invoices.length,
-    confirmed: invoices.filter(i => i.consegnato).length,
-    pending: invoices.filter(i => !i.consegnato).length,
+    return erroriConsegna !== '' || note !== '' || itemNoConv !== '';
   };
 
+  // Verifica presenza cronologia
+  const hasHistory = (invoice) => {
+    const storico = String(invoice.storico_modifiche || '').trim();
+    return storico !== '';
+  };
+
+  // Conta modifiche in cronologia
+  const getHistoryCount = (invoice) => {
+    try {
+      const storico = JSON.parse(invoice.storico_modifiche || '[]');
+      return Array.isArray(storico) ? storico.length : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  // ==========================================
+  // FILTERING
+  // ==========================================
+  useEffect(() => {
+    let filtered = [...invoices];
+
+    // Filtro testo ricerca
+    if (searchTerm.trim() !== '') {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(inv => 
+        inv.numero?.toLowerCase().includes(term) ||
+        inv.fornitore?.toLowerCase().includes(term) ||
+        inv.punto_vendita?.toLowerCase().includes(term)
+      );
+    }
+
+    // Filtro negozio
+    if (filterStore !== 'ALL') {
+      filtered = filtered.filter(inv => inv.punto_vendita === filterStore);
+    }
+
+    // Filtro stato
+    if (filterStatus !== 'ALL') {
+      filtered = filtered.filter(inv => inv.stato === filterStatus);
+    }
+
+    // Filtro date
+    if (filterDateFrom) {
+      filtered = filtered.filter(inv => inv.data_emissione >= filterDateFrom);
+    }
+    if (filterDateTo) {
+      filtered = filtered.filter(inv => inv.data_emissione <= filterDateTo);
+    }
+
+    // Filtro solo con errori
+    if (showErrorsOnly) {
+      filtered = filtered.filter(inv => hasErrors(inv));
+    }
+
+    // Filtro solo modificate
+    if (showModifiedOnly) {
+      filtered = filtered.filter(inv => hasHistory(inv));
+    }
+
+    // Ordina per data emissione (più recenti prima)
+    filtered.sort((a, b) => new Date(b.data_emissione) - new Date(a.data_emissione));
+
+    setFilteredInvoices(filtered);
+  }, [
+    invoices, 
+    searchTerm, 
+    filterStore, 
+    filterStatus, 
+    filterDateFrom, 
+    filterDateTo,
+    showErrorsOnly,
+    showModifiedOnly
+  ]);
+
+  // ==========================================
+  // HANDLERS
+  // ==========================================
+  const handleOpenDetail = async (invoice) => {
+    try {
+      // Fetch dettaglio completo fattura con flag has_errors e has_history
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/invoices/${invoice.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) throw new Error('Errore caricamento dettaglio');
+      
+      const data = await response.json();
+      setSelectedInvoice(data.invoice);
+      setShowDetailModal(true);
+    } catch (err) {
+      console.error('Errore apertura dettaglio:', err);
+      alert('Impossibile aprire il dettaglio della fattura');
+    }
+  };
+
+  const handleCloseDetail = () => {
+    setShowDetailModal(false);
+    setSelectedInvoice(null);
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setFilterStore('ALL');
+    setFilterStatus('ALL');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setShowErrorsOnly(false);
+    setShowModifiedOnly(false);
+  };
+
+  const handleExport = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/admin/export?type=invoices&format=json', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!response.ok) throw new Error('Errore export');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `fatture_export_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Errore export:', err);
+      alert('Impossibile esportare i dati');
+    }
+  };
+
+  // ==========================================
+  // RENDER
+  // ==========================================
+  
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-fradiavolo-red mx-auto mb-4"></div>
-          <p className="text-fradiavolo-charcoal-light">Caricamento fatture...</p>
-        </div>
+      <div className="flex items-center justify-center h-96">
+        <RefreshCw className="animate-spin text-blue-500" size={48} />
+        <span className="ml-3 text-gray-600 text-lg">Caricamento fatture...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+        <AlertCircle className="mx-auto text-red-500 mb-3" size={48} />
+        <h3 className="text-lg font-semibold text-red-900 mb-2">Errore</h3>
+        <p className="text-red-700">{error}</p>
+        <button 
+          onClick={fetchInvoices}
+          className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+        >
+          Riprova
+        </button>
       </div>
     );
   }
@@ -135,252 +288,345 @@ const AdminInvoiceManager = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-fradiavolo-charcoal flex items-center gap-3">
-            <div className="p-3 bg-fradiavolo-green/10 rounded-xl">
-              <FileText className="h-8 w-8 text-fradiavolo-green" />
-            </div>
-            Fatture Globali
+          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+            <FileText className="text-blue-600" size={32} />
+            Gestione Fatture
           </h1>
-          <p className="text-fradiavolo-charcoal-light mt-2">
-            Gestione fatture di tutti i punti vendita
-          </p>
+          <p className="text-gray-600 mt-1">Visualizza e gestisci tutte le fatture del sistema</p>
+        </div>
+        
+        <div className="flex gap-3">
+          <button
+            onClick={fetchInvoices}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            <RefreshCw size={18} />
+            Aggiorna
+          </button>
+          
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            <Download size={18} />
+            Esporta
+          </button>
+        </div>
+      </div>
+
+      {/* Statistiche */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Totale Fatture</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+            </div>
+            <Package className="text-blue-500" size={32} />
+          </div>
         </div>
 
-        {/* Filtri */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-fradiavolo-cream-dark px-4 py-3 shadow-fradiavolo flex-1 min-w-[300px]">
-            <Search className="h-5 w-5 text-fradiavolo-charcoal-light" />
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Consegnate</p>
+              <p className="text-2xl font-bold text-green-700">{stats.consegnate}</p>
+            </div>
+            <TrendingUp className="text-green-500" size={32} />
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Da Confermare</p>
+              <p className="text-2xl font-bold text-yellow-700">{stats.pending}</p>
+            </div>
+            <Clock className="text-yellow-500" size={32} />
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Con Errori</p>
+              <p className="text-2xl font-bold text-red-700">{stats.withErrors}</p>
+            </div>
+            <AlertCircle className="text-red-500" size={32} />
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Modificate</p>
+              <p className="text-2xl font-bold text-blue-700">{stats.modified}</p>
+            </div>
+            <Clock className="text-blue-500" size={32} />
+          </div>
+        </div>
+      </div>
+
+      {/* Filtri */}
+      <div className="bg-white border border-gray-200 rounded-lg p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="text-gray-600" size={20} />
+          <h3 className="font-semibold text-gray-900">Filtri</h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Ricerca */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Ricerca
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Cerca numero, fornitore..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Negozio */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Punto Vendita
+            </label>
+            <select
+              value={filterStore}
+              onChange={(e) => setFilterStore(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="ALL">Tutti i negozi</option>
+              {stores.map(store => (
+                <option key={store.name} value={store.name}>{store.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Stato */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Stato
+            </label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="ALL">Tutti gli stati</option>
+              <option value="consegnato">Consegnato</option>
+              <option value="pending">Da Confermare</option>
+            </select>
+          </div>
+
+          {/* Data Da */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Data Da
+            </label>
             <input
-              type="text"
-              placeholder="Cerca per numero, fornitore, punto vendita..."
-              className="outline-none text-sm text-fradiavolo-charcoal placeholder:text-fradiavolo-charcoal-light w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              type="date"
+              value={filterDateFrom}
+              onChange={(e) => setFilterDateFrom(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
-          {/* Filtro Stato */}
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-fradiavolo-cream-dark px-4 py-3 shadow-fradiavolo">
-            <Filter className="h-5 w-5 text-fradiavolo-charcoal-light" />
-            <select
-              className="text-sm outline-none text-fradiavolo-charcoal font-medium cursor-pointer"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">Tutti gli stati</option>
-              <option value="confirmed">✅ Consegnati</option>
-              <option value="pending">⏳ In attesa</option>
-            </select>
+          {/* Data A */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Data A
+            </label>
+            <input
+              type="date"
+              value={filterDateTo}
+              onChange={(e) => setFilterDateTo(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
           </div>
 
-          {/* Filtro Punto Vendita */}
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-fradiavolo-cream-dark px-4 py-3 shadow-fradiavolo">
-            <Store className="h-5 w-5 text-fradiavolo-charcoal-light" />
-            <select
-              className="text-sm outline-none text-fradiavolo-charcoal font-medium cursor-pointer max-w-[200px]"
-              value={storeFilter}
-              onChange={(e) => setStoreFilter(e.target.value)}
-            >
-              <option value="all">Tutti i negozi</option>
-              {uniqueStores.map(store => (
-                <option key={store} value={store}>{store}</option>
-              ))}
-            </select>
-          </div>
+          {/* Checkbox Filtri Rapidi */}
+          <div className="col-span-full flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showErrorsOnly}
+                onChange={(e) => setShowErrorsOnly(e.target.checked)}
+                className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Solo con errori</span>
+            </label>
 
-          {/* Filtro Fornitore */}
-          <div className="flex items-center gap-2 bg-white rounded-xl border border-fradiavolo-cream-dark px-4 py-3 shadow-fradiavolo">
-            <Truck className="h-5 w-5 text-fradiavolo-charcoal-light" />
-            <select
-              className="text-sm outline-none text-fradiavolo-charcoal font-medium cursor-pointer max-w-[200px]"
-              value={supplierFilter}
-              onChange={(e) => setSupplierFilter(e.target.value)}
-            >
-              <option value="all">Tutti i fornitori</option>
-              {uniqueSuppliers.map(supplier => (
-                <option key={supplier} value={supplier}>{supplier}</option>
-              ))}
-            </select>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showModifiedOnly}
+                onChange={(e) => setShowModifiedOnly(e.target.checked)}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Solo modificate</span>
+            </label>
           </div>
+        </div>
 
-          {/* Reset Filtri */}
-          {(searchTerm || statusFilter !== 'all' || storeFilter !== 'all' || supplierFilter !== 'all') && (
-            <button
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('all');
-                setStoreFilter('all');
-                setSupplierFilter('all');
-              }}
-              className="px-4 py-3 text-sm text-fradiavolo-red hover:bg-fradiavolo-cream rounded-xl transition font-medium"
-            >
-              Cancella filtri
-            </button>
-          )}
+        {/* Reset Filtri */}
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <button
+            onClick={handleResetFilters}
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Resetta tutti i filtri
+          </button>
         </div>
       </div>
 
-      {/* Stat Cards - STILE DASHBOARD */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Totale Fatture */}
-        <div className="bg-white rounded-xl p-6 border border-fradiavolo-cream-dark shadow-fradiavolo">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-blue-50 rounded-xl">
-              <FileText className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-fradiavolo-charcoal">
-                {stats.total}
-              </p>
-              <p className="text-sm text-fradiavolo-charcoal-light">Fatture Totali</p>
-            </div>
-          </div>
+      {/* Risultati */}
+      <div className="bg-white border border-gray-200 rounded-lg">
+        <div className="p-4 border-b border-gray-200">
+          <p className="text-sm text-gray-600">
+            Risultati: <span className="font-semibold text-gray-900">{filteredInvoices.length}</span> fatture
+          </p>
         </div>
 
-        {/* Consegnate */}
-        <div className="bg-white rounded-xl p-6 border border-fradiavolo-cream-dark shadow-fradiavolo">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-fradiavolo-green/10 rounded-xl">
-              <CheckCircle className="h-6 w-6 text-fradiavolo-green" />
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-fradiavolo-charcoal">
-                {stats.confirmed}
-              </p>
-              <p className="text-sm text-fradiavolo-charcoal-light">Consegnate</p>
-            </div>
-          </div>
-        </div>
-
-        {/* In Attesa */}
-        <div className="bg-white rounded-xl p-6 border border-fradiavolo-cream-dark shadow-fradiavolo">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-fradiavolo-orange/10 rounded-xl">
-              <Clock className="h-6 w-6 text-fradiavolo-orange" />
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold text-fradiavolo-charcoal">
-                {stats.pending}
-              </p>
-              <p className="text-sm text-fradiavolo-charcoal-light">In Attesa</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabella - STILE DASHBOARD */}
-      <div className="bg-white rounded-xl border border-fradiavolo-cream-dark shadow-fradiavolo overflow-hidden">
+        {/* Tabella */}
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-fradiavolo-cream-dark">
-            <thead className="bg-fradiavolo-cream/50">
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Numero
                 </th>
-                {/* ✅ Header Data con sorting */}
-                <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
-                  <button
-                    onClick={toggleSortOrder}
-                    className="inline-flex items-center gap-2 hover:text-fradiavolo-red transition-colors group"
-                  >
-                    <span>Data Emissione</span>
-                    {sortOrder === 'desc' ? (
-                      <ArrowDown className="h-4 w-4 text-fradiavolo-red" />
-                    ) : (
-                      <ArrowUp className="h-4 w-4 text-fradiavolo-red" />
-                    )}
-                  </button>
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Fornitore
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
-                  Punto vendita
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Punto Vendita
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Data Emissione
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Stato
                 </th>
-                <th className="px-6 py-4 text-right text-xs font-bold text-fradiavolo-charcoal uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Indicatori
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Azioni
                 </th>
               </tr>
             </thead>
-
-            <tbody className="bg-white divide-y divide-fradiavolo-cream">
-              {sortedInvoices.length === 0 ? (
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredInvoices.length === 0 ? (
                 <tr>
-                  <td className="px-6 py-12 text-center text-sm text-fradiavolo-charcoal-light" colSpan={6}>
-                    <div className="flex flex-col items-center gap-3">
-                      <FileText className="h-12 w-12 text-fradiavolo-charcoal-light opacity-50" />
-                      <p className="font-medium">Nessuna fattura trovata</p>
-                      <p className="text-xs">Prova a modificare i filtri di ricerca</p>
-                    </div>
+                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                    <Package className="mx-auto mb-3 text-gray-400" size={48} />
+                    <p className="text-lg font-medium">Nessuna fattura trovata</p>
+                    <p className="text-sm mt-1">Prova a modificare i filtri di ricerca</p>
                   </td>
                 </tr>
               ) : (
-                sortedInvoices.map((invoice) => (
+                filteredInvoices.map((invoice) => (
                   <tr 
-                    key={invoice.id || `${invoice.numeroFattura}-${invoice.puntoVendita}`}
-                    className="hover:bg-fradiavolo-cream/30 transition-colors"
+                    key={invoice.id}
+                    className="hover:bg-gray-50 transition-colors"
                   >
                     {/* Numero */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center text-sm font-medium text-fradiavolo-charcoal">
-                        <FileText className="h-4 w-4 mr-2 text-fradiavolo-charcoal-light" />
-                        {invoice.numeroFattura}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <FileText className="text-gray-400 mr-2" size={18} />
+                        <span className="text-sm font-medium text-gray-900">
+                          {invoice.numero}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Fornitore */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{invoice.fornitore}</div>
+                      {invoice.codice_fornitore && (
+                        <div className="text-xs text-gray-500">
+                          Cod: {invoice.codice_fornitore}
+                        </div>
+                      )}
+                    </td>
+
+                    {/* Punto Vendita */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <Building2 className="text-gray-400 mr-2" size={16} />
+                        <span className="text-sm text-gray-900">
+                          {invoice.punto_vendita}
+                        </span>
                       </div>
                     </td>
 
                     {/* Data Emissione */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center text-sm text-fradiavolo-charcoal">
-                        <Calendar className="h-4 w-4 mr-2 text-fradiavolo-charcoal-light" />
-                        {invoice.dataEmissione || '—'}
-                      </div>
-                    </td>
-
-                    {/* Fornitore */}
-                    <td className="px-6 py-4 text-sm text-fradiavolo-charcoal">
                       <div className="flex items-center">
-                        <Truck className="h-4 w-4 mr-2 text-fradiavolo-charcoal-light" />
-                        {invoice.fornitore}
+                        <Calendar className="text-gray-400 mr-2" size={16} />
+                        <span className="text-sm text-gray-900">
+                          {new Date(invoice.data_emissione).toLocaleDateString('it-IT')}
+                        </span>
                       </div>
                     </td>
 
-                    {/* Punto vendita */}
-                    <td className="px-6 py-4 text-sm text-fradiavolo-charcoal">
-                      <div className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-2 text-fradiavolo-charcoal-light" />
-                        {invoice.puntoVendita}
-                      </div>
-                    </td>
-
-                    {/* STATO */}
+                    {/* Stato */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {invoice.consegnato ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-fradiavolo-green/20 text-fradiavolo-green border border-fradiavolo-green/30">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Consegnato
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-fradiavolo-orange/20 text-fradiavolo-orange border border-fradiavolo-orange/30">
-                          <Clock className="h-3 w-3 mr-1" />
-                          In Attesa
-                        </span>
-                      )}
+                      <span className={`
+                        inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                        ${invoice.stato === 'consegnato' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                        }
+                      `}>
+                        {invoice.stato === 'consegnato' ? 'Consegnato' : 'Da Confermare'}
+                      </span>
                     </td>
 
-                    {/* COLONNA "Vedi DDT" */}
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    {/* Indicatori (NUOVO!) */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        {/* Badge Errori */}
+                        {hasErrors(invoice) && (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold"
+                            title="Errori di consegna presenti"
+                          >
+                            <AlertCircle size={14} />
+                            Errori
+                          </span>
+                        )}
+
+                        {/* Badge Modifiche */}
+                        {hasHistory(invoice) && (
+                          <span 
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold"
+                            title={`${getHistoryCount(invoice)} modifiche registrate`}
+                          >
+                            <Clock size={14} />
+                            {getHistoryCount(invoice)}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Azioni */}
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => handleViewDDT(invoice)}
-                        className="inline-flex items-center px-4 py-2 bg-fradiavolo-red text-white rounded-lg hover:bg-fradiavolo-red/90 transition text-sm font-medium shadow-fradiavolo"
+                        onClick={() => handleOpenDetail(invoice)}
+                        className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-900 transition-colors"
                       >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Vedi DDT
+                        <Eye size={16} />
+                        Dettagli
                       </button>
                     </td>
                   </tr>
@@ -389,135 +635,17 @@ const AdminInvoiceManager = () => {
             </tbody>
           </table>
         </div>
-
-        {/* Footer con conteggio risultati */}
-        {sortedInvoices.length > 0 && (
-          <div className="bg-fradiavolo-cream/30 px-6 py-4 border-t border-fradiavolo-cream-dark">
-            <p className="text-sm text-fradiavolo-charcoal-light">
-              Visualizzate <span className="font-bold text-fradiavolo-charcoal">{sortedInvoices.length}</span> di <span className="font-bold text-fradiavolo-charcoal">{invoices.length}</span> fatture totali
-              <span className="mx-2">•</span>
-              <span className="font-medium">
-                Ordinate per data {sortOrder === 'desc' ? 'decrescente ↓' : 'crescente ↑'}
-              </span>
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* MODAL DDT */}
-      {showDDTModal && selectedDDT && (
-        <DDTModal
-          ddt={selectedDDT}
-          onClose={() => {
-            setShowDDTModal(false);
-            setSelectedDDT(null);
-          }}
+      {/* Modale Dettaglio */}
+      {showDetailModal && selectedInvoice && (
+        <InvoiceDetailModal 
+          invoice={selectedInvoice}
+          onClose={handleCloseDetail}
         />
       )}
     </div>
   );
 };
-
-// MODAL DDT - Allineato con lo stile della dashboard
-const DDTModal = ({ ddt, onClose }) => (
-  <>
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity" onClick={onClose} />
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden border border-fradiavolo-cream-dark">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-fradiavolo-red to-fradiavolo-orange text-white p-6 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <FileCheck className="h-6 w-6" />
-            </div>
-            <div>
-              <h3 className="text-xl font-bold">Documento di Trasporto</h3>
-              <p className="text-sm opacity-90 mt-1">
-                Fattura: {ddt.numeroFattura}
-              </p>
-            </div>
-          </div>
-          <button 
-            onClick={onClose} 
-            className="p-2 hover:bg-white/20 rounded-lg transition"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(85vh-180px)]">
-          {/* Info Card */}
-          <div className="bg-fradiavolo-cream rounded-xl p-5 mb-6 space-y-3 border border-fradiavolo-cream-dark">
-            <div className="flex items-center gap-3 text-sm">
-              <div className="p-2 bg-white rounded-lg">
-                <MapPin className="h-4 w-4 text-fradiavolo-red" />
-              </div>
-              <div>
-                <span className="text-fradiavolo-charcoal-light text-xs uppercase tracking-wide">Punto Vendita</span>
-                <p className="font-semibold text-fradiavolo-charcoal">{ddt.puntoVendita}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 text-sm">
-              <div className="p-2 bg-white rounded-lg">
-                <Package className="h-4 w-4 text-fradiavolo-red" />
-              </div>
-              <div>
-                <span className="text-fradiavolo-charcoal-light text-xs uppercase tracking-wide">Fornitore</span>
-                <p className="font-semibold text-fradiavolo-charcoal">{ddt.fornitore}</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3 text-sm">
-              <div className="p-2 bg-white rounded-lg">
-                <Calendar className="h-4 w-4 text-fradiavolo-red" />
-              </div>
-              <div>
-                <span className="text-fradiavolo-charcoal-light text-xs uppercase tracking-wide">Data Emissione</span>
-                <p className="font-semibold text-fradiavolo-charcoal">{ddt.dataEmissione}</p>
-              </div>
-            </div>
-
-            {ddt.dataConsegna && (
-              <div className="flex items-center gap-3 text-sm">
-                <div className="p-2 bg-white rounded-lg">
-                  <CheckCircle className="h-4 w-4 text-fradiavolo-green" />
-                </div>
-                <div>
-                  <span className="text-fradiavolo-charcoal-light text-xs uppercase tracking-wide">Data Consegna</span>
-                  <p className="font-semibold text-fradiavolo-green">{ddt.dataConsegna}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* DDT Text */}
-          <div className="bg-fradiavolo-cream/30 rounded-xl p-6 border border-fradiavolo-cream-dark">
-            <h4 className="text-sm font-bold text-fradiavolo-charcoal uppercase tracking-wide mb-4 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-fradiavolo-red" />
-              Contenuto DDT
-            </h4>
-            <div className="bg-white rounded-lg p-4 border border-fradiavolo-cream-dark">
-              <pre className="text-fradiavolo-charcoal whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                {ddt.testoDDT}
-              </pre>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="bg-fradiavolo-cream/50 p-4 flex justify-end border-t border-fradiavolo-cream-dark">
-          <button
-            onClick={onClose}
-            className="px-6 py-3 bg-fradiavolo-charcoal text-white rounded-lg hover:bg-fradiavolo-charcoal/90 transition font-medium shadow-fradiavolo"
-          >
-            Chiudi
-          </button>
-        </div>
-      </div>
-    </div>
-  </>
-);
 
 export default AdminInvoiceManager;
