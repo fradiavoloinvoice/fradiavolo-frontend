@@ -61,7 +61,7 @@ const TxtFilesManager = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/txt-files', {
+const response = await fetch(`${API_BASE_URL}/txt-files`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -137,7 +137,7 @@ const TxtFilesManager = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/txt-files/${file.name}/content`, {
+const response = await fetch(`${API_BASE_URL}/txt-files/${file.name}/content`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -157,7 +157,7 @@ const TxtFilesManager = () => {
   const handleDownloadFile = async (fileName) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/txt-files/${fileName}`, {
+const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -185,7 +185,7 @@ const TxtFilesManager = () => {
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/txt-files/${fileName}`, {
+const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -203,7 +203,7 @@ const TxtFilesManager = () => {
   const handleDownloadByDate = async (date) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/txt-files/download-by-date/${date}`, {
+const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
