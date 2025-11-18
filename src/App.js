@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FileText, Eye, Edit3, Download, CheckCircle, AlertCircle, LogOut, User, Users, Clock, Package, MessageCircle, Save, X, RefreshCw, Truck, HardDrive } from 'lucide-react';
 import Movimentazione from './Movimentazione';
 import AdminDashboard from './components/AdminDashboard';
+import ErrorReportModal from './components/ErrorReportModal';
 import AdminInvoiceManager from './components/AdminInvoiceManager';
 import AdminMovimentazioniManager from './components/AdminMovimentazioniManager';
 import AdminUserManager from './components/AdminUserManager'; // eventualmente usato in altre viste
@@ -1387,84 +1388,54 @@ const InvoiceProcessorApp = () => {
         </>
       )}
 
-      {/* Modal Errori - Mobile Optimized */}
-      {errorModalInvoice && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-fradiavolo-lg w-full max-w-lg max-h-[90vh] overflow-y-auto border border-fradiavolo-cream-dark mobile-modal">
-            <div className="flex items-center space-x-3 p-4 sm:p-6 border-b border-fradiavolo-cream-dark mobile-modal-header">
-              <div className="p-2 sm:p-3 bg-fradiavolo-orange/20 rounded-2xl border border-fradiavolo-orange/30">
-                <AlertCircle className="h-5 w-5 sm:h-6 sm:w-6 text-fradiavolo-orange" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg sm:text-xl font-bold text-fradiavolo-charcoal">Conferma con Errori</h3>
-                <p className="text-sm sm:text-base text-fradiavolo-charcoal-light truncate mobile-text-sm">
-                  <span className="block sm:inline">{errorModalInvoice.fornitore}</span>
-                  <span className="hidden sm:inline mx-1">-</span>
-                  <span className="text-fradiavolo-red font-medium">{errorModalInvoice.numero}</span>
-                </p>
-              </div>
-            </div>
+      {/* Modal Errori Avanzato */}
+{errorModalInvoice && (
+  <ErrorReportModal
+    invoice={errorModalInvoice}
+    onClose={() => {
+      setErrorModalInvoice(null);
+    }}
+    onConfirm={async (errorData) => {
+      try {
+        setIsLoading(true);
+        
+        await apiCall(`/invoices/${errorModalInvoice.id}/report-error`, {
+          method: 'POST',
+          body: JSON.stringify({
+            data_consegna: errorModalInvoice.deliveryDate,
+            modifiche_righe: errorData.modifiche_righe,
+            note_testuali: errorData.note_testuali
+          })
+        });
 
-            <div className="p-4 sm:p-6 mobile-modal-body">
-              <div className="mb-4 sm:mb-6">
-                <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">
-                  Descrivi i problemi riscontrati:
-                </label>
-                <textarea
-                  value={errorNotes}
-                  onChange={(e) => setErrorNotes(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-orange focus:border-fradiavolo-orange transition-colors text-base mobile-textarea"
-                  rows="4"
-                  placeholder="Es: Prodotto danneggiato, quantità non corrispondente, cliente assente..."
-                  required
-                />
-                <p className="text-xs text-fradiavolo-charcoal-light mt-2 mobile-text-xs">
-                  📄 Un file TXT verrà generato automaticamente anche con le note di errore
-                </p>
-              </div>
+        // Aggiorna stato locale
+        setSheetInvoices(prev => prev.map(inv =>
+          inv.id.toString() === errorModalInvoice.id.toString()
+            ? {
+                ...inv,
+                stato: 'consegnato',
+                data_consegna: errorModalInvoice.deliveryDate,
+                confermato_da: errorModalInvoice.confermato_da || user.email,
+                note: errorData.note_testuali || ''
+              }
+            : inv
+        ));
 
-              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-                <button
-                  onClick={() => {
-                    if (!errorNotes.trim()) {
-                      setError('⚠️ Inserisci una descrizione dell\'errore');
-                      setTimeout(() => setError(''), 3000);
-                      return;
-                    }
-                    confirmDelivery(errorModalInvoice.id, errorModalInvoice.deliveryDate, errorNotes, errorModalInvoice.confermato_da);
-                    setErrorModalInvoice(null);
-                    setErrorNotes('');
-                  }}
-                  disabled={isLoading}
-                  className="flex-1 px-4 sm:px-6 py-3 bg-fradiavolo-orange hover:bg-fradiavolo-gold text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 flex items-center justify-center space-x-2 mobile-button mobile-touch-feedback"
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      <span className="text-sm sm:text-base">Salvando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5" />
-                      <span className="text-sm sm:text-base">Conferma con Note</span>
-                    </>
-                  )}
-                </button>
+        setSuccess('⚠️ Errori registrati! File TXT generato con suffisso _ERRORI');
+        setErrorModalInvoice(null);
 
-                <button
-                  onClick={() => {
-                    setErrorModalInvoice(null);
-                    setErrorNotes('');
-                  }}
-                  className="px-4 sm:px-6 py-3 bg-fradiavolo-charcoal text-white rounded-xl hover:bg-fradiavolo-charcoal-light transition-all font-semibold shadow-lg mobile-button mobile-touch-feedback"
-                >
-                  <span className="text-sm sm:text-base">Annulla</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        setTimeout(() => loadInvoicesFromSheet(), 2000);
+      } catch (error) {
+        setError('❌ Errore nella segnalazione: ' + error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    }}
+    isLoading={isLoading}
+    apiBaseUrl={API_BASE_URL}
+    token={token}
+  />
+)}
 
       {/* Footer Admin */}
       {user?.role === 'admin' && (
