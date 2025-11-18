@@ -8,40 +8,81 @@ const ErrorReportModal = ({ invoice, onClose, onConfirm, isLoading, apiBaseUrl, 
   const [productErrors, setProductErrors] = useState({});
   const [loadingProducts, setLoadingProducts] = useState(true);
 
-  // ✅ NUOVO: Pre-carica errori esistenti se in modalità modifica
-useEffect(() => {
-  if (invoice.existingErrors && invoice.isEditMode) {
-    console.log('🔄 Pre-caricamento errori esistenti:', invoice.existingErrors);
-    
-    // Pre-compila note testuali
-    if (invoice.existingErrors.note_testuali) {
-      setNoteTestuali(invoice.existingErrors.note_testuali);
-    }
-    
-    // Pre-compila modifiche prodotti
-    if (invoice.existingErrors.modifiche && Array.isArray(invoice.existingErrors.modifiche)) {
-      setProdotti(prev => prev.map(prodotto => {
-        const modificaEsistente = invoice.existingErrors.modifiche.find(
-          m => m.riga_numero === prodotto.riga_numero
+  // ✅ Carica prodotti DDT
+  useEffect(() => {
+    const loadDDT = async () => {
+      try {
+        setLoadingProducts(true);
+        
+        const authHeader = token?.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        
+        const response = await fetch(
+          `${apiBaseUrl}/invoices/${invoice.id}/parse-ddt`,
+          {
+            headers: { Authorization: authHeader }
+          }
         );
-        
-        if (modificaEsistente) {
-          return {
-            ...prodotto,
-            modificato: true,
-            quantita_ricevuta: modificaEsistente.quantita_ricevuta,
-            motivo: modificaEsistente.motivo || ''
-          };
+
+        if (!response.ok) {
+          throw new Error(`Errore ${response.status}`);
         }
+
+        const data = await response.json();
         
-        return prodotto;
-      }));
-    }
-  }
-}, [invoice.existingErrors, invoice.isEditMode]);
+        if (data.success && data.prodotti) {
+          setParsedProducts(data.prodotti);
+        } else {
+          console.warn('Nessun prodotto trovato nel DDT');
+          setParsedProducts([]);
+        }
+      } catch (error) {
+        console.error('Errore caricamento DDT:', error);
+        setParsedProducts([]);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
 
     loadDDT();
   }, [invoice.id, apiBaseUrl, token]);
+
+  // ✅ Pre-carica errori esistenti se in modalità modifica
+  useEffect(() => {
+    if (invoice.existingErrors && invoice.isEditMode) {
+      console.log('🔄 Pre-caricamento errori esistenti:', invoice.existingErrors);
+      
+      // Pre-compila note testuali
+      if (invoice.existingErrors.note_testuali) {
+        setErrorNotes(invoice.existingErrors.note_testuali); // ✅ FIXATO
+      }
+      
+      // Pre-compila modifiche prodotti
+      if (invoice.existingErrors.modifiche && Array.isArray(invoice.existingErrors.modifiche)) {
+        // Aspetta che i prodotti siano caricati prima di applicare le modifiche
+        if (parsedProducts.length > 0) {
+          const newProductErrors = {};
+          
+          invoice.existingErrors.modifiche.forEach(modificaEsistente => {
+            const prodotto = parsedProducts.find(
+              p => p.riga_numero === modificaEsistente.riga_numero
+            );
+            
+            if (prodotto) {
+              newProductErrors[prodotto.riga_numero] = {
+                modificato: true,
+                quantita_originale: modificaEsistente.quantita_originale,
+                quantita_ricevuta: modificaEsistente.quantita_ricevuta,
+                motivo: modificaEsistente.motivo || ''
+              };
+            }
+          });
+          
+          setProductErrors(newProductErrors);
+          console.log('✅ Errori pre-caricati:', newProductErrors);
+        }
+      }
+    }
+  }, [invoice.existingErrors, invoice.isEditMode, parsedProducts]);
 
   const handleProductErrorToggle = (rigaNumero) => {
     setProductErrors(prev => ({
