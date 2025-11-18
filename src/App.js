@@ -931,111 +931,33 @@ const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !==
                             </div>
                           </div>
 
-                          {editingInvoice === invoice.id ? (
-                            <div className="space-y-4 bg-fradiavolo-cream p-6 rounded-xl border border-fradiavolo-cream-dark">
-                              <h4 className="font-semibold text-fradiavolo-charcoal mb-4">Modifica dettagli consegna</h4>
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Data consegna</label>
-                                    <input
-                                      type="date"
-                                      defaultValue={invoice.data_consegna}
-                                      max={new Date().toISOString().split('T')[0]}
-                                      id={`edit-date-${invoice.id}`}
-                                      className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Confermato da</label>
-                                    <input
-                                      type="email"
-                                      defaultValue={invoice.confermato_da}
-                                      id={`edit-confirmed-${invoice.id}`}
-                                      className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                                    />
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Note errori (opzionale)</label>
-                                  <textarea
-                                    defaultValue={invoice.note || ''}
-                                    id={`edit-notes-${invoice.id}`}
-                                    rows="3"
-                                    className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                                    placeholder="Descrivi eventuali problemi nella consegna..."
-                                  />
-                                </div>
-                              </div>
-                              <div className="flex space-x-3">
-                                <button
-                                  onClick={() => {
-                                    console.log('🔄 Bottone Salva Modifiche cliccato');
+                          <div className="flex justify-end">
+  <button
+    onClick={() => {
+      // Prepara i dati per il modale
+      const existingErrors = (() => {
+        try {
+          return invoice.errori_consegna ? JSON.parse(invoice.errori_consegna) : null;
+        } catch (e) {
+          console.error('Errore parsing errori esistenti:', e);
+          return null;
+        }
+      })();
 
-                                    const dateInput = document.getElementById(`edit-date-${invoice.id}`);
-                                    const confirmedInput = document.getElementById(`edit-confirmed-${invoice.id}`);
-                                    const notesInput = document.getElementById(`edit-notes-${invoice.id}`);
-
-                                    console.log('📝 Valori input:', {
-                                      date: dateInput?.value,
-                                      confirmed: confirmedInput?.value,
-                                      notes: notesInput?.value
-                                    });
-
-                                    if (!dateInput?.value) {
-                                      console.error('❌ Data mancante');
-                                      setError('⚠️ Data di consegna richiesta');
-                                      setTimeout(() => setError(''), 3000);
-                                      return;
-                                    }
-
-                                    if (!confirmedInput?.value) {
-                                      console.error('❌ Email mancante');
-                                      setError('⚠️ Email di conferma richiesta');
-                                      setTimeout(() => setError(''), 3000);
-                                      return;
-                                    }
-                                    const iso = toISODate(dateInput?.value);
-                                    if (!iso) {
-                                      setError('⚠️ Data di consegna non valida');
-                                      setTimeout(() => setError(''), 3000);
-                                      return;
-                                    }
-                                    const updateData = {
-                                      data_consegna: iso,
-                                      confermato_da: confirmedInput.value,
-                                      note: notesInput?.value || ''
-                                    };
-
-                                    console.log('💾 Chiamando updateInvoice con:', updateData);
-                                    updateInvoice(invoice.id, updateData);
-                                  }}
-                                  disabled={isLoading}
-                                  className="flex items-center space-x-2 px-6 py-3 bg-fradiavolo-green hover:bg-fradiavolo-green-dark text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 transform hover:scale-105"
-                                >
-                                  {isLoading ? <LoadingSpinner /> : <Save className="h-4 w-4" />}
-                                  <span>Salva Modifiche</span>
-                                </button>
-                                <button
-                                  onClick={() => setEditingInvoice(null)}
-                                  className="flex items-center space-x-2 px-6 py-3 bg-fradiavolo-charcoal text-white rounded-xl hover:bg-fradiavolo-charcoal-light transition-all font-semibold shadow-lg transform hover:scale-105"
-                                >
-                                  <X className="h-4 w-4" />
-                                  <span>Annulla</span>
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex justify-end">
-                              <button
-                                onClick={() => setEditingInvoice(invoice.id)}
-                                className="flex items-center space-x-2 px-4 py-2 text-fradiavolo-red hover:bg-fradiavolo-red/10 rounded-xl transition-all font-semibold border border-fradiavolo-red/30 hover:border-fradiavolo-red"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                                <span>Modifica</span>
-                              </button>
-                            </div>
-                          )}
+      setErrorModalInvoice({
+        ...invoice,
+        deliveryDate: invoice.data_consegna,
+        confermato_da: invoice.confermato_da,
+        isEditMode: true, // ✅ Flag per indicare modalità modifica
+        existingErrors: existingErrors // ✅ Passa gli errori esistenti
+      });
+    }}
+    className="flex items-center space-x-2 px-4 py-2 text-fradiavolo-red hover:bg-fradiavolo-red/10 rounded-xl transition-all font-semibold border border-fradiavolo-red/30 hover:border-fradiavolo-red"
+  >
+    <Edit3 className="h-4 w-4" />
+    <span>Modifica</span>
+  </button>
+</div>
                         </div>
                       );
                     })}
@@ -1439,111 +1361,33 @@ const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !==
                             </div>
                           </div>
 
-                          {editingInvoice === invoice.id ? (
-                            <div className="space-y-4 bg-fradiavolo-cream p-6 rounded-xl border border-fradiavolo-cream-dark">
-                              <h4 className="font-semibold text-fradiavolo-charcoal mb-4">Modifica dettagli consegna</h4>
-                              <div className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Data consegna</label>
-                                    <input
-                                      type="date"
-                                      defaultValue={invoice.data_consegna}
-                                      max={new Date().toISOString().split('T')[0]}
-                                      id={`edit-date-${invoice.id}`}
-                                      className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Confermato da</label>
-                                    <input
-                                      type="email"
-                                      defaultValue={invoice.confermato_da}
-                                      id={`edit-confirmed-${invoice.id}`}
-                                      className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                                    />
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-sm font-semibold text-fradiavolo-charcoal mb-2">Note errori (opzionale)</label>
-                                  <textarea
-                                    defaultValue={invoice.note || ''}
-                                    id={`edit-notes-${invoice.id}`}
-                                    rows="3"
-                                    className="w-full px-4 py-3 border border-fradiavolo-cream-dark rounded-xl focus:ring-2 focus:ring-fradiavolo-red focus:border-fradiavolo-red transition-colors"
-                                    placeholder="Descrivi eventuali problemi nella consegna..."
-                                  />
-                                </div>
-                              </div>
-                              <div className="flex space-x-3">
-                                <button
-                                  onClick={() => {
-                                    console.log('🔄 Bottone Salva Modifiche cliccato');
+                          <div className="flex justify-end">
+  <button
+    onClick={() => {
+      // Prepara i dati per il modale
+      const existingErrors = (() => {
+        try {
+          return invoice.errori_consegna ? JSON.parse(invoice.errori_consegna) : null;
+        } catch (e) {
+          console.error('Errore parsing errori esistenti:', e);
+          return null;
+        }
+      })();
 
-                                    const dateInput = document.getElementById(`edit-date-${invoice.id}`);
-                                    const confirmedInput = document.getElementById(`edit-confirmed-${invoice.id}`);
-                                    const notesInput = document.getElementById(`edit-notes-${invoice.id}`);
-
-                                    console.log('📝 Valori input:', {
-                                      date: dateInput?.value,
-                                      confirmed: confirmedInput?.value,
-                                      notes: notesInput?.value
-                                    });
-
-                                    if (!dateInput?.value) {
-                                      console.error('❌ Data mancante');
-                                      setError('⚠️ Data di consegna richiesta');
-                                      setTimeout(() => setError(''), 3000);
-                                      return;
-                                    }
-
-                                    if (!confirmedInput?.value) {
-                                      console.error('❌ Email mancante');
-                                      setError('⚠️ Email di conferma richiesta');
-                                      setTimeout(() => setError(''), 3000);
-                                      return;
-                                    }
-                                    const iso = toISODate(dateInput?.value);
-                                    if (!iso) {
-                                      setError('⚠️ Data di consegna non valida');
-                                      setTimeout(() => setError(''), 3000);
-                                      return;
-                                    }
-                                    const updateData = {
-                                      data_consegna: iso,
-                                      confermato_da: confirmedInput.value,
-                                      note: notesInput?.value || ''
-                                    };
-
-                                    console.log('💾 Chiamando updateInvoice con:', updateData);
-                                    updateInvoice(invoice.id, updateData);
-                                  }}
-                                  disabled={isLoading}
-                                  className="flex items-center space-x-2 px-6 py-3 bg-fradiavolo-green hover:bg-fradiavolo-green-dark text-white rounded-xl hover:shadow-fradiavolo transition-all font-semibold shadow-lg disabled:opacity-50 transform hover:scale-105"
-                                >
-                                  {isLoading ? <LoadingSpinner /> : <Save className="h-4 w-4" />}
-                                  <span>Salva Modifiche</span>
-                                </button>
-                                <button
-                                  onClick={() => setEditingInvoice(null)}
-                                  className="flex items-center space-x-2 px-6 py-3 bg-fradiavolo-charcoal text-white rounded-xl hover:bg-fradiavolo-charcoal-light transition-all font-semibold shadow-lg transform hover:scale-105"
-                                >
-                                  <X className="h-4 w-4" />
-                                  <span>Annulla</span>
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="flex justify-end">
-                              <button
-                                onClick={() => setEditingInvoice(invoice.id)}
-                                className="flex items-center space-x-2 px-4 py-2 text-fradiavolo-red hover:bg-fradiavolo-red/10 rounded-xl transition-all font-semibold border border-fradiavolo-red/30 hover:border-fradiavolo-red"
-                              >
-                                <Edit3 className="h-4 w-4" />
-                                <span>Modifica</span>
-                              </button>
-                            </div>
-                          )}
+      setErrorModalInvoice({
+        ...invoice,
+        deliveryDate: invoice.data_consegna,
+        confermato_da: invoice.confermato_da,
+        isEditMode: true, // ✅ Flag per indicare modalità modifica
+        existingErrors: existingErrors // ✅ Passa gli errori esistenti
+      });
+    }}
+    className="flex items-center space-x-2 px-4 py-2 text-fradiavolo-red hover:bg-fradiavolo-red/10 rounded-xl transition-all font-semibold border border-fradiavolo-red/30 hover:border-fradiavolo-red"
+  >
+    <Edit3 className="h-4 w-4" />
+    <span>Modifica</span>
+  </button>
+</div>
                         </div>
                       );
                     })}
@@ -1566,14 +1410,41 @@ const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !==
       try {
         setIsLoading(true);
         
-        await apiCall(`/invoices/${errorModalInvoice.id}/report-error`, {
-          method: 'POST',
-          body: JSON.stringify({
-            data_consegna: errorModalInvoice.deliveryDate,
-            modifiche_righe: errorData.modifiche_righe,
-            note_testuali: errorData.note_testuali
-          })
-        });
+        const isEditMode = errorModalInvoice.isEditMode || false;
+        
+        if (isEditMode) {
+          // ✅ MODALITÀ MODIFICA: Usa endpoint di update
+          await apiCall(`/invoices/${errorModalInvoice.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+              data_consegna: errorModalInvoice.deliveryDate,
+              confermato_da: errorModalInvoice.confermato_da,
+              errori_consegna: JSON.stringify({
+                timestamp: new Date().toISOString(),
+                data_consegna: errorModalInvoice.deliveryDate,
+                utente: user.email,
+                modifiche: errorData.modifiche_righe?.filter(m => m.modificato) || [],
+                note_testuali: errorData.note_testuali || '',
+                righe_modificate: errorData.modifiche_righe?.filter(m => m.modificato).length || 0,
+                totale_righe: errorData.modifiche_righe?.length || 0
+              })
+            })
+          });
+          
+          setSuccess('✅ Errori aggiornati con successo!');
+        } else {
+          // ✅ MODALITÀ NUOVA SEGNALAZIONE: Usa endpoint report-error
+          await apiCall(`/invoices/${errorModalInvoice.id}/report-error`, {
+            method: 'POST',
+            body: JSON.stringify({
+              data_consegna: errorModalInvoice.deliveryDate,
+              modifiche_righe: errorData.modifiche_righe,
+              note_testuali: errorData.note_testuali
+            })
+          });
+          
+          setSuccess('⚠️ Errori registrati! File TXT generato con suffisso _ERRORI');
+        }
 
         // Aggiorna stato locale
         setSheetInvoices(prev => prev.map(inv =>
@@ -1583,14 +1454,20 @@ const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !==
                 stato: 'consegnato',
                 data_consegna: errorModalInvoice.deliveryDate,
                 confermato_da: errorModalInvoice.confermato_da || user.email,
-                note: errorData.note_testuali || ''
+                errori_consegna: JSON.stringify({
+                  timestamp: new Date().toISOString(),
+                  data_consegna: errorModalInvoice.deliveryDate,
+                  utente: user.email,
+                  modifiche: errorData.modifiche_righe?.filter(m => m.modificato) || [],
+                  note_testuali: errorData.note_testuali || '',
+                  righe_modificate: errorData.modifiche_righe?.filter(m => m.modificato).length || 0,
+                  totale_righe: errorData.modifiche_righe?.length || 0
+                })
               }
             : inv
         ));
 
-        setSuccess('⚠️ Errori registrati! File TXT generato con suffisso _ERRORI');
         setErrorModalInvoice(null);
-
         setTimeout(() => loadInvoicesFromSheet(), 2000);
       } catch (error) {
         setError('❌ Errore nella segnalazione: ' + error.message);
