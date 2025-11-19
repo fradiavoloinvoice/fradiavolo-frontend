@@ -14,7 +14,7 @@ import {
   AlertCircle,
   Loader2
 } from 'lucide-react';
-import ErrorsSection from './ErrorsSection';
+import ErrorsSection from './components/ErrorsSection';
 
 /**
  * Gestione File TXT
