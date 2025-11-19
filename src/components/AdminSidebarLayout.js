@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  BarChart3, FileText, Truck, HardDrive, 
+  BarChart3, FileText, Truck, HardDrive, AlertCircle,
   Menu, X, ChevronLeft, ChevronRight
 } from 'lucide-react';
 
@@ -8,6 +8,7 @@ import {
 import AdminDashboard from './AdminDashboard';
 import AdminInvoiceManager from './AdminInvoiceManager';
 import AdminMovimentazioniManager from './AdminMovimentazioniManager';
+import SegnalazioniManager from '../SegnalazioniManager';  // ✅ AGGIUNGI QUESTA
 import TxtFilesManager from '../TxtFilesManager';
 
 const AdminSidebarLayout = ({ 
@@ -57,6 +58,12 @@ const AdminSidebarLayout = ({
       icon: Truck,
       description: 'Movimentazioni tra tutti i negozi'
     },
+    { 
+    id: 'admin-segnalazioni', 
+    label: 'Segnalazioni', 
+    icon: AlertCircle,
+    description: 'Gestione segnalazioni errori DDT'
+  },
     { 
       id: 'txt-files', 
       label: 'File TXT', 
@@ -108,6 +115,8 @@ const AdminSidebarLayout = ({
         return <AdminInvoiceManager user={user} />;
       case 'admin-movimentazioni':
         return <AdminMovimentazioniManager user={user} />;
+        case 'admin-segnalazioni':
+      return <SegnalazioniManager user={user} />;
       case 'txt-files':
         return <TxtFilesManager user={user} />;
       default:
