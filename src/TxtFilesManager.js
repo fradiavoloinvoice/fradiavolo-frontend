@@ -11,12 +11,15 @@ import {
   Calendar,
   Package,
   Filter,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
+import ErrorsSection from '../../components/ErrorsSection';
 
 /**
  * Gestione File TXT
  * Interfaccia semplificata per visualizzare, scaricare ed eliminare file TXT generati
+ * ✨ AGGIORNATO: Visualizzazione errori segnalati nella modale dettaglio
  */
 const API_BASE_URL = 'https://fradiavolo-backend.onrender.com/api';
 
@@ -40,6 +43,11 @@ const TxtFilesManager = () => {
   const [fileContent, setFileContent] = useState('');
   const [loadingContent, setLoadingContent] = useState(false);
   
+  // ✨ NUOVO: Dettagli fattura ed errori
+  const [invoiceDetails, setInvoiceDetails] = useState(null);
+  const [invoiceErrors, setInvoiceErrors] = useState(null);
+  const [loadingInvoiceDetails, setLoadingInvoiceDetails] = useState(false);
+  
   // Statistiche
   const [stats, setStats] = useState({
     total: 0,
@@ -61,7 +69,7 @@ const TxtFilesManager = () => {
     
     try {
       const token = localStorage.getItem('token');
-const response = await fetch(`${API_BASE_URL}/txt-files`, {
+      const response = await fetch(`${API_BASE_URL}/txt-files`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -97,13 +105,88 @@ const response = await fetch(`${API_BASE_URL}/txt-files`, {
     }
   };
 
+  // ✨ NUOVO: Estrai ID fattura dal nome file e carica dettagli
+  const extractInvoiceIdFromFilename = (filename) => {
+    // Cerca pattern nel nome file per estrarre info fattura
+    // Esempio: "MARR_DDT123456_2024-01-15.txt" o "MARR_DDT123456_2024-01-15_ERRORI.txt"
+    const match = filename.match(/([A-Z]+)_([A-Z0-9]+)_(\d{4}-\d{2}-\d{2})/);
+    if (match) {
+      return {
+        fornitore: match[1],
+        numero: match[2],
+        data: match[3]
+      };
+    }
+    return null;
+  };
+
+  const fetchInvoiceDetails = async (file) => {
+    setLoadingInvoiceDetails(true);
+    
+    try {
+      const invoiceInfo = extractInvoiceIdFromFilename(file.name);
+      
+      if (!invoiceInfo) {
+        console.warn('Impossibile estrarre info fattura dal nome file');
+        setInvoiceDetails(null);
+        setInvoiceErrors(null);
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      
+      // Cerca fattura per numero e data
+      const searchResponse = await fetch(
+        `${API_BASE_URL}/admin/invoices?numero=${invoiceInfo.numero}&data=${invoiceInfo.data}`,
+        { headers: { 'Authorization': `Bearer ${token}` } }
+      );
+      
+      if (!searchResponse.ok) {
+        throw new Error('Fattura non trovata');
+      }
+      
+      const searchData = await searchResponse.json();
+      
+      if (!searchData.data || searchData.data.length === 0) {
+        console.warn('Nessuna fattura trovata per questo file');
+        setInvoiceDetails(null);
+        setInvoiceErrors(null);
+        return;
+      }
+      
+      const invoice = searchData.data[0];
+      setInvoiceDetails(invoice);
+      
+      // Se la fattura ha errori, caricali
+      if (invoice.has_errors) {
+        const errorsResponse = await fetch(
+          `${API_BASE_URL}/invoices/${invoice.id}/errors`,
+          { headers: { 'Authorization': `Bearer ${token}` } }
+        );
+        
+        if (errorsResponse.ok) {
+          const errorsData = await errorsResponse.json();
+          setInvoiceErrors(errorsData.errors);
+        }
+      } else {
+        setInvoiceErrors(null);
+      }
+      
+    } catch (err) {
+      console.error('Errore caricamento dettagli fattura:', err);
+      setInvoiceDetails(null);
+      setInvoiceErrors(null);
+    } finally {
+      setLoadingInvoiceDetails(false);
+    }
+  };
+
   // ==========================================
   // FILTERING
   // ==========================================
   useEffect(() => {
     let filtered = [...files];
 
-    // Filtro ricerca testo
     if (searchTerm.trim() !== '') {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(file => 
@@ -111,17 +194,14 @@ const response = await fetch(`${API_BASE_URL}/txt-files`, {
       );
     }
 
-    // Filtro solo con errori
     if (filterErrorsOnly) {
       filtered = filtered.filter(file => file.name.includes('_ERRORI'));
     }
 
-    // Filtro data specifica
     if (selectedDate) {
       filtered = filtered.filter(file => file.name.includes(selectedDate));
     }
 
-    // Ordina per data creazione (più recenti prima)
     filtered.sort((a, b) => new Date(b.created) - new Date(a.created));
 
     setFilteredFiles(filtered);
@@ -137,7 +217,7 @@ const response = await fetch(`${API_BASE_URL}/txt-files`, {
     
     try {
       const token = localStorage.getItem('token');
-const response = await fetch(`${API_BASE_URL}/txt-files/${file.name}/content`, {
+      const response = await fetch(`${API_BASE_URL}/txt-files/${file.name}/content`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -145,6 +225,10 @@ const response = await fetch(`${API_BASE_URL}/txt-files/${file.name}/content`, {
       
       const data = await response.json();
       setFileContent(data.content);
+      
+      // ✨ NUOVO: Carica anche i dettagli della fattura ed errori
+      await fetchInvoiceDetails(file);
+      
     } catch (err) {
       console.error('Errore visualizzazione file:', err);
       alert('Impossibile visualizzare il file');
@@ -157,7 +241,7 @@ const response = await fetch(`${API_BASE_URL}/txt-files/${file.name}/content`, {
   const handleDownloadFile = async (fileName) => {
     try {
       const token = localStorage.getItem('token');
-const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
+      const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -185,7 +269,7 @@ const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
     
     try {
       const token = localStorage.getItem('token');
-const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
+      const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -193,7 +277,7 @@ const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
       if (!response.ok) throw new Error('Errore eliminazione file');
       
       alert('File eliminato con successo (backup creato)');
-      fetchFiles(); // Ricarica la lista
+      fetchFiles();
     } catch (err) {
       console.error('Errore eliminazione:', err);
       alert('Impossibile eliminare il file');
@@ -203,7 +287,7 @@ const response = await fetch(`${API_BASE_URL}/txt-files/${fileName}`, {
   const handleDownloadByDate = async (date) => {
     try {
       const token = localStorage.getItem('token');
-const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}`, {
+      const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -228,6 +312,8 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
     setShowFileContent(false);
     setSelectedFile(null);
     setFileContent('');
+    setInvoiceDetails(null);
+    setInvoiceErrors(null);
   };
 
   const handleResetFilters = () => {
@@ -344,7 +430,6 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Ricerca */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Cerca file
@@ -361,7 +446,6 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
             </div>
           </div>
 
-          {/* Seleziona Data */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Filtra per data
@@ -380,7 +464,6 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
             </select>
           </div>
 
-          {/* Checkbox Solo Errori */}
           <div className="flex items-end">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -396,7 +479,6 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
           </div>
         </div>
 
-        {/* Reset Filtri */}
         <div className="mt-4 pt-4 border-t border-gray-200">
           <button
             onClick={handleResetFilters}
@@ -471,7 +553,6 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
                     key={file.name}
                     className="hover:bg-gray-50 transition-colors"
                   >
-                    {/* Nome File */}
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <FileText 
@@ -484,14 +565,12 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
                       </div>
                     </td>
 
-                    {/* Dimensione */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm text-gray-900">
                         {formatFileSize(file.size)}
                       </span>
                     </td>
 
-                    {/* Data Creazione */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         {new Date(file.created).toLocaleDateString('it-IT')}
@@ -504,7 +583,6 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
                       </div>
                     </td>
 
-                    {/* Stato */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       {hasErrors(file.name) ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
@@ -518,7 +596,6 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
                       )}
                     </td>
 
-                    {/* Azioni */}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-3">
                         <button
@@ -554,10 +631,10 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
         )}
       </div>
 
-      {/* Modale Visualizzazione File */}
+      {/* ✨ MODALE MIGLIORATA - Con Contenuto File + Errori */}
       {showFileContent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+          <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <div className="flex-1">
@@ -579,21 +656,51 @@ const response = await fetch(`${API_BASE_URL}/txt-files/download-by-date/${date}
               </button>
             </div>
 
-            {/* Contenuto */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {loadingContent ? (
-                <div className="flex items-center justify-center h-64">
-                  <RefreshCw className="animate-spin text-blue-500" size={32} />
-                  <span className="ml-3 text-gray-600">Caricamento contenuto...</span>
+            {/* Contenuto - Scrollabile */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Contenuto File TXT */}
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Contenuto File</h3>
+                {loadingContent ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="animate-spin text-blue-500" size={32} />
+                    <span className="ml-3 text-gray-600">Caricamento contenuto...</span>
+                  </div>
+                ) : (
+                  <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm font-mono whitespace-pre-wrap break-words max-h-96 overflow-y-auto">
+                    {fileContent}
+                  </pre>
+                )}
+              </div>
+
+              {/* ✨ SEZIONE ERRORI SEGNALATI */}
+              {hasErrors(selectedFile?.name) && (
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <AlertCircle className="text-red-600" size={20} />
+                    Errori Segnalati
+                  </h3>
+                  
+                  {loadingInvoiceDetails ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="animate-spin text-blue-500" size={32} />
+                      <span className="ml-3 text-gray-600">Caricamento errori...</span>
+                    </div>
+                  ) : invoiceErrors ? (
+                    <ErrorsSection errorDetails={invoiceErrors} />
+                  ) : (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ Impossibile recuperare i dettagli degli errori per questo file.
+                        La fattura potrebbe non essere più presente nel sistema.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <pre className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-sm font-mono whitespace-pre-wrap break-words">
-                  {fileContent}
-                </pre>
               )}
             </div>
 
-            {/* Footer */}
+            {/* Footer Azioni */}
             <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => handleDownloadFile(selectedFile?.name)}
