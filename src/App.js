@@ -8,7 +8,7 @@ import AdminMovimentazioniManager from './components/AdminMovimentazioniManager'
 import AdminUserManager from './components/AdminUserManager'; // eventualmente usato in altre viste
 import TxtFilesManager from './TxtFilesManager';
 import AdminSidebarLayout from './components/AdminSidebarLayout';
-import SegnalazioniManager from './pages/admin/SegnalazioniManager'; // ✅ AGGIUNGI QUESTA
+import SegnalazioniManager from './SegnalazioniManager'; // ✅ AGGIUNGI QUESTA
 // ❌ rimosso: import usersData from './components/AdminUserManager';
 import negoziData from './data/negozi.json';
 
