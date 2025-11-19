@@ -1,187 +1,146 @@
 // frontend/src/components/ErrorsSection.jsx
 import React from 'react';
-import { AlertCircle, Package, FileText, Clock } from 'lucide-react';
+import { AlertCircle, Package, FileText } from 'lucide-react';
 
 /**
- * Componente per visualizzare gli errori di consegna di una fattura
- * Supporta sia il nuovo formato strutturato che i formati legacy
+ * Componente riutilizzabile per visualizzare gli errori di consegna
+ * Mostra: note testuali + modifiche prodotti (quantità ordinate vs ricevute)
  */
 const ErrorsSection = ({ errorDetails }) => {
-  if (!errorDetails || Object.keys(errorDetails).length === 0) {
+  if (!errorDetails) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        <AlertCircle className="mx-auto mb-2" size={48} />
-        <p>Nessun errore segnalato per questa fattura</p>
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+        <AlertCircle className="mx-auto text-gray-400 mb-2" size={32} />
+        <p className="text-sm text-gray-600">Nessun errore disponibile</p>
       </div>
     );
   }
 
-  // ✅ SUPPORTA ENTRAMBI I NOMI: errori_strutturati (nuovo) e errori_consegna (vecchio)
-  const erroriStrutturati = errorDetails.errori_strutturati || errorDetails.errori_consegna;
-  
-  const hasStructuredErrors = erroriStrutturati && 
-                               erroriStrutturati.modifiche && 
-                               erroriStrutturati.modifiche.length > 0;
-  
-  const hasLegacyNotes = errorDetails.note_errori_legacy && 
-                         errorDetails.note_errori_legacy.trim() !== '';
-  
-  const hasConversionErrors = errorDetails.errori_conversione_legacy && 
-                              errorDetails.errori_conversione_legacy.trim() !== '';
+  // Parse errori se sono in formato stringa JSON
+  let parsedErrors = errorDetails;
+  if (typeof errorDetails === 'string') {
+    try {
+      parsedErrors = JSON.parse(errorDetails);
+    } catch (err) {
+      console.error('Errore parsing errorDetails:', err);
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-800">
+            ⚠️ Formato errori non valido
+          </p>
+        </div>
+      );
+    }
+  }
+
+  const { modifiche = [], note_testuali = '' } = parsedErrors;
+  const modificheProdotti = modifiche.filter(m => m.modificato);
 
   return (
     <div className="space-y-6">
-      {/* Header Sezione */}
-      <div className="flex items-center gap-3 pb-3 border-b-2 border-red-500">
-        <AlertCircle className="text-red-500" size={24} />
-        <h3 className="text-lg font-semibold text-gray-800">
-          Errori di Consegna Segnalati
-        </h3>
-      </div>
-
-      {/* Informazioni Generali */}
-      {errorDetails.data_consegna && (
-        <div className="bg-gray-50 rounded-lg p-4 grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-gray-600">Data consegna</p>
-            <p className="font-semibold text-gray-900">
-              {new Date(errorDetails.data_consegna).toLocaleDateString('it-IT')}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-600">Confermato da</p>
-            <p className="font-semibold text-gray-900">
-              {errorDetails.confermato_da || 'N/A'}
-            </p>
+      {/* Note Testuali */}
+      {note_testuali && note_testuali.trim() !== '' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <FileText className="text-yellow-600 mt-0.5 flex-shrink-0" size={20} />
+            <div className="flex-1">
+              <h4 className="font-semibold text-yellow-900 mb-2">Note Errori</h4>
+              <p className="text-sm text-yellow-800 whitespace-pre-wrap">{note_testuali}</p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ✅ ERRORI STRUTTURATI (NUOVO FORMATO) */}
-      {hasStructuredErrors && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-orange-600">
-            <Package size={20} />
-            <h4 className="font-semibold">
-              Modifiche Prodotti ({erroriStrutturati.righe_modificate} su {erroriStrutturati.totale_righe})
-            </h4>
+      {/* Modifiche Prodotti */}
+      {modificheProdotti.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3 mb-4">
+            <Package className="text-red-600 mt-0.5 flex-shrink-0" size={20} />
+            <div className="flex-1">
+              <h4 className="font-semibold text-red-900">
+                Prodotti con Discrepanze ({modificheProdotti.length})
+              </h4>
+              <p className="text-xs text-red-700 mt-1">
+                Quantità ordinate vs quantità ricevute
+              </p>
+            </div>
           </div>
 
-          {/* Timestamp segnalazione */}
-          {erroriStrutturati.timestamp && (
-            <div className="flex items-center gap-2 text-sm text-gray-600 bg-blue-50 p-2 rounded">
-              <Clock size={16} />
-              <span>
-                Segnalato il {new Date(erroriStrutturati.timestamp).toLocaleString('it-IT')}
-                {erroriStrutturati.utente && ` da ${erroriStrutturati.utente}`}
-              </span>
-            </div>
-          )}
-
-          {/* Lista Modifiche */}
           <div className="space-y-3">
-            {erroriStrutturati.modifiche.map((modifica, index) => (
-              <div 
-                key={index}
-                className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg shadow-sm hover:shadow-md transition-shadow"
-              >
-                {/* Header Prodotto */}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">
-                      Riga {modifica.riga_numero}: {modifica.nome || modifica.prodotto_originale || 'Prodotto'}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Codice: <span className="font-mono">{modifica.codice || 'N/A'}</span>
+            {modificheProdotti.map((modifica, index) => {
+              const differenza = modifica.quantita_ricevuta - modifica.quantita_originale;
+              const isDifferenzaNegativa = differenza < 0;
+
+              return (
+                <div
+                  key={index}
+                  className="bg-white border border-red-200 rounded-lg p-4"
+                >
+                  {/* Nome prodotto e codice */}
+                  <div className="mb-3">
+                    <p className="font-semibold text-gray-900">{modifica.nome}</p>
+                    <p className="text-xs text-gray-600">
+                      Codice: <span className="font-mono">{modifica.codice}</span> • 
+                      Riga: {modifica.riga_numero}
                     </p>
                   </div>
+
+                  {/* Quantità */}
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Ordinata</p>
+                      <p className="font-semibold text-gray-900">
+                        {modifica.quantita_originale} {modifica.unita_misura}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Ricevuta</p>
+                      <p className="font-semibold text-red-700">
+                        {modifica.quantita_ricevuta} {modifica.unita_misura}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-600 mb-1">Differenza</p>
+                      <p className={`font-semibold ${isDifferenzaNegativa ? 'text-red-700' : 'text-orange-700'}`}>
+                        {differenza > 0 ? '+' : ''}{differenza.toFixed(2)} {modifica.unita_misura}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Badge Stato */}
+                  <div className="mt-3 pt-3 border-t border-red-100">
+                    <span className={`
+                      inline-block px-2 py-1 rounded-full text-xs font-semibold
+                      ${isDifferenzaNegativa 
+                        ? 'bg-red-100 text-red-800' 
+                        : 'bg-orange-100 text-orange-800'
+                      }
+                    `}>
+                      {isDifferenzaNegativa ? '⚠️ Quantità Mancante' : '⚠️ Quantità Eccedente'}
+                    </span>
+                  </div>
+
+                  {/* Motivo (se presente) */}
+                  {modifica.motivo && modifica.motivo.trim() !== '' && (
+                    <div className="mt-3 pt-3 border-t border-red-100">
+                      <p className="text-xs text-gray-600 mb-1">Motivo:</p>
+                      <p className="text-sm text-gray-900">{modifica.motivo}</p>
+                    </div>
+                  )}
                 </div>
-
-                {/* Quantità Ordinata vs Ricevuta */}
-                <div className="grid grid-cols-2 gap-4 mt-3 bg-white p-3 rounded">
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase">Ordinato</p>
-                    <p className="text-lg font-bold text-gray-700">
-                      {modifica.quantita_originale} {modifica.unita_misura || ''}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase">Ricevuto</p>
-                    <p className="text-lg font-bold text-red-600">
-                      {modifica.quantita_ricevuta} {modifica.unita_misura || ''}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Motivo Modifica */}
-                {modifica.motivo && modifica.motivo.trim() !== '' && (
-                  <div className="mt-3 pt-3 border-t border-yellow-200">
-                    <p className="text-sm text-gray-700">
-                      <span className="font-semibold">Motivo:</span> {modifica.motivo}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Note Testuali Strutturate */}
-          {erroriStrutturati.note_testuali && 
-           erroriStrutturati.note_testuali.trim() !== '' && (
-            <div className="bg-green-50 border-l-4 border-green-400 p-4 rounded-r-lg">
-              <div className="flex items-start gap-2">
-                <FileText className="text-green-600 flex-shrink-0 mt-1" size={20} />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 mb-2">Note Aggiuntive</h4>
-                  <p className="text-gray-700 whitespace-pre-wrap">
-                    {erroriStrutturati.note_testuali}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ⚠️ ERRORI LEGACY (BACKWARD COMPATIBILITY) */}
-      {hasLegacyNotes && (
-        <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-r-lg">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="text-orange-600 flex-shrink-0 mt-1" size={20} />
-            <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 mb-2">
-                Note Errore (formato legacy)
-              </h4>
-              <p className="text-gray-700 whitespace-pre-wrap">
-                {errorDetails.note_errori_legacy}
-              </p>
-            </div>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* ⚠️ ERRORI CONVERSIONE LEGACY */}
-      {hasConversionErrors && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4 rounded-r-lg">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="text-red-600 flex-shrink-0 mt-1" size={20} />
-            <div className="flex-1">
-              <h4 className="font-semibold text-gray-900 mb-2">
-                Errore di Conversione
-              </h4>
-              <p className="text-gray-700 whitespace-pre-wrap">
-                {errorDetails.errori_conversione_legacy}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Messaggio se nessun formato trovato */}
-      {!hasStructuredErrors && !hasLegacyNotes && !hasConversionErrors && (
-        <div className="text-center py-8 text-gray-500">
-          <AlertCircle className="mx-auto mb-2" size={48} />
-          <p>Dati errore non disponibili o formato non riconosciuto</p>
+      {/* Nessun errore trovato */}
+      {modificheProdotti.length === 0 && (!note_testuali || note_testuali.trim() === '') && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+          <AlertCircle className="mx-auto text-gray-400 mb-2" size={32} />
+          <p className="text-sm text-gray-600">Nessun errore di consegna registrato</p>
         </div>
       )}
     </div>
