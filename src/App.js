@@ -8,6 +8,7 @@ import AdminMovimentazioniManager from './components/AdminMovimentazioniManager'
 import AdminUserManager from './components/AdminUserManager'; // eventualmente usato in altre viste
 import TxtFilesManager from './TxtFilesManager';
 import AdminSidebarLayout from './components/AdminSidebarLayout';
+import SegnalazioniManager from './pages/admin/SegnalazioniManager'; // ✅ AGGIUNGI QUESTA
 // ❌ rimosso: import usersData from './components/AdminUserManager';
 import negoziData from './data/negozi.json';
 
@@ -771,7 +772,6 @@ const InvoiceProcessorApp = () => {
                     </p>
                   </div>
                 </div>
-
                 {isLoading ? (
                   <div className="text-center py-16">
                     <div className="inline-flex items-center justify-center w-16 h-16 bg-fradiavolo-cream rounded-full mb-4 border border-fradiavolo-cream-dark">
@@ -964,6 +964,15 @@ const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !==
                 )}
               </div>
             )}
+              {/* ✅ AGGIUNGI QUI (dopo la chiusura di delivered) */}
+  {activeTab === 'admin-segnalazioni' && (
+    <SegnalazioniManager 
+      user={user}
+      apiBaseUrl={API_BASE_URL}
+      token={token}
+    />
+  )}
+
           </AdminSidebarLayout>
         </div>
       ) : (
@@ -1030,6 +1039,7 @@ const hasErrors = (invoice.errori_consegna && invoice.errori_consegna.trim() !==
             {activeTab === 'txt-files' && (
               <TxtFilesManager user={user} />
             )}
+
 
             {/* Tab Da Confermare per Operator */}
             {activeTab === 'pending' && (
