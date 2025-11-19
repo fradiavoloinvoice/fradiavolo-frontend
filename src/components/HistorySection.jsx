@@ -1,148 +1,169 @@
 // frontend/src/components/HistorySection.jsx
 import React from 'react';
-import { Clock, User, ArrowRight, Edit3 } from 'lucide-react';
+import { Clock, User, Calendar } from 'lucide-react';
 
 /**
- * Componente per visualizzare la cronologia delle modifiche di una fattura
- * Mostra tutte le modifiche in formato timeline
+ * Componente riutilizzabile per visualizzare la cronologia modifiche di una fattura
+ * Mostra: timestamp, utente, tipo modifica, dettagli
  */
 const HistorySection = ({ historyData }) => {
-  if (!historyData || !historyData.modifiche || historyData.modifiche.length === 0) {
+  if (!historyData || historyData.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        <Clock className="mx-auto mb-2" size={48} />
-        <p>Nessuna modifica registrata per questa fattura</p>
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+        <Clock className="mx-auto text-gray-400 mb-2" size={32} />
+        <p className="text-sm text-gray-600">Nessuna modifica registrata</p>
       </div>
     );
   }
 
-  // Mappa nomi campi user-friendly
-  const fieldLabels = {
-    data_consegna: 'Data di consegna',
-    confermato_da: 'Confermato da',
-    note: 'Note',
-    stato: 'Stato',
-    errori_consegna: 'Errori di consegna'
-  };
-
-  const getFieldLabel = (campo) => fieldLabels[campo] || campo;
-
-  // Formatta valore per display
-  const formatValue = (value, campo) => {
-    if (!value || value === '') return '(vuoto)';
-    
-    // Formatta date
-    if (campo === 'data_consegna') {
-      try {
-        return new Date(value).toLocaleDateString('it-IT');
-      } catch {
-        return value;
-      }
+  // Parse cronologia se è in formato stringa JSON
+  let parsedHistory = historyData;
+  if (typeof historyData === 'string') {
+    try {
+      parsedHistory = JSON.parse(historyData);
+    } catch (err) {
+      console.error('Errore parsing historyData:', err);
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-800">
+            ⚠️ Formato cronologia non valido
+          </p>
+        </div>
+      );
     }
-    
-    // Limita lunghezza testi lunghi
-    if (typeof value === 'string' && value.length > 100) {
-      return value.substring(0, 100) + '...';
-    }
-    
-    return value;
-  };
+  }
+
+  // Assicurati che sia un array
+  const history = Array.isArray(parsedHistory) ? parsedHistory : [];
+
+  // Ordina per timestamp (più recenti prima)
+  const sortedHistory = [...history].sort((a, b) => 
+    new Date(b.timestamp) - new Date(a.timestamp)
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Header Sezione */}
-      <div className="flex items-center gap-3 pb-3 border-b-2 border-blue-500">
-        <Clock className="text-blue-500" size={24} />
-        <h3 className="text-lg font-semibold text-gray-800">
-          Cronologia Modifiche ({historyData.modifiche.length})
-        </h3>
-      </div>
-
-      {/* Timeline Modifiche */}
+    <div className="space-y-4">
+      {/* Timeline */}
       <div className="relative">
         {/* Linea verticale timeline */}
-        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+        <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
 
+        {/* Eventi */}
         <div className="space-y-6">
-          {historyData.modifiche.map((modifica, index) => (
-            <div key={index} className="relative pl-16">
-              {/* Pallino timeline */}
-              <div className="absolute left-3 top-3 w-6 h-6 bg-blue-500 rounded-full border-4 border-white shadow-md flex items-center justify-center">
-                <Edit3 size={12} className="text-white" />
+          {sortedHistory.map((event, index) => (
+            <div key={index} className="relative pl-10">
+              {/* Dot timeline */}
+              <div className="absolute left-0 top-1 w-8 h-8 bg-blue-500 rounded-full border-4 border-white shadow flex items-center justify-center">
+                <Clock className="text-white" size={14} />
               </div>
 
-              {/* Card Modifica */}
-              <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-                {/* Header Card */}
+              {/* Card evento */}
+              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                {/* Header evento */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 mb-1">
-                      {getFieldLabel(modifica.campo)}
+                    <h4 className="font-semibold text-gray-900">
+                      {event.tipo === 'conferma' && '✅ Conferma Ricezione'}
+                      {event.tipo === 'modifica' && '✏️ Modifica Dati'}
+                      {event.tipo === 'segnalazione_errori' && '⚠️ Segnalazione Errori'}
+                      {!event.tipo && '📝 Modifica Generica'}
                     </h4>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock size={14} />
-                      <span>
-                        {modifica.data_modifica || 
-                         (modifica.timestamp ? new Date(modifica.timestamp).toLocaleDateString('it-IT') : 'N/A')}
-                      </span>
-                      {modifica.timestamp && (
-                        <span className="text-xs text-gray-400">
-                          • {new Date(modifica.timestamp).toLocaleTimeString('it-IT', { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
-                      )}
-                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      {event.descrizione || 'Modifica effettuata'}
+                    </p>
                   </div>
 
-                  {/* Badge utente */}
-                  {modifica.modificato_da && (
-                    <div className="flex items-center gap-1 text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
-                      <User size={12} />
-                      <span className="max-w-[150px] truncate">
-                        {modifica.modificato_da}
-                      </span>
-                    </div>
-                  )}
+                  <span className="text-xs text-gray-500 whitespace-nowrap ml-3">
+                    {new Date(event.timestamp).toLocaleString('it-IT', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
                 </div>
 
-                {/* Valore Precedente → Valore Nuovo */}
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-center">
-                    {/* Valore Precedente */}
-                    <div className="bg-white rounded p-3 border border-gray-200">
-                      <p className="text-xs text-gray-500 uppercase mb-1">Prima</p>
-                      <p className="text-sm font-medium text-gray-700 break-words">
-                        {formatValue(modifica.valore_precedente, modifica.campo)}
-                      </p>
-                    </div>
+                {/* Utente */}
+                {event.utente && (
+                  <div className="flex items-center gap-2 mb-3 text-sm text-gray-600">
+                    <User size={14} />
+                    <span>Modificato da: <strong className="text-gray-900">{event.utente}</strong></span>
+                  </div>
+                )}
 
-                    {/* Freccia */}
-                    <div className="flex justify-center">
-                      <ArrowRight className="text-blue-500" size={20} />
-                    </div>
-
-                    {/* Valore Nuovo */}
-                    <div className="bg-white rounded p-3 border-2 border-blue-200">
-                      <p className="text-xs text-blue-600 uppercase mb-1">Dopo</p>
-                      <p className="text-sm font-semibold text-gray-900 break-words">
-                        {formatValue(modifica.valore_nuovo, modifica.campo)}
-                      </p>
+                {/* Dettagli modifiche prodotti */}
+                {event.modifiche && event.modifiche.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs font-semibold text-gray-700 mb-2">
+                      Modifiche Prodotti:
+                    </p>
+                    <div className="space-y-2">
+                      {event.modifiche
+                        .filter(m => m.modificato)
+                        .map((modifica, idx) => (
+                          <div 
+                            key={idx}
+                            className="bg-gray-50 border border-gray-200 rounded p-2 text-xs"
+                          >
+                            <p className="font-medium text-gray-900">{modifica.nome}</p>
+                            <p className="text-gray-600">
+                              Codice: {modifica.codice} • Riga: {modifica.riga_numero}
+                            </p>
+                            <p className="text-gray-700 mt-1">
+                              <span className="text-gray-600">Ordinata:</span> {modifica.quantita_originale} {modifica.unita_misura} → 
+                              <span className="text-red-700 font-semibold"> Ricevuta:</span> {modifica.quantita_ricevuta} {modifica.unita_misura}
+                            </p>
+                            {modifica.motivo && (
+                              <p className="text-gray-600 mt-1 italic">
+                                Motivo: {modifica.motivo}
+                              </p>
+                            )}
+                          </div>
+                        ))}
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* Note testuali */}
+                {event.note_testuali && event.note_testuali.trim() !== '' && (
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Note:</p>
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap">
+                      {event.note_testuali}
+                    </p>
+                  </div>
+                )}
+
+                {/* Stato precedente/nuovo (se disponibile) */}
+                {event.stato_precedente && event.stato_nuovo && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-3 text-xs">
+                    <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+                      {event.stato_precedente}
+                    </span>
+                    <span className="text-gray-400">→</span>
+                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded">
+                      {event.stato_nuovo}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Footer Riepilogo */}
-      <div className="bg-blue-50 rounded-lg p-4 text-center text-sm text-blue-700">
-        <p>
-          Totale modifiche registrate: <strong>{historyData.modifiche.length}</strong>
-        </p>
+      {/* Footer statistiche */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
+        <div className="flex items-center gap-2 text-sm text-blue-800">
+          <Calendar size={16} />
+          <span>
+            <strong>{history.length}</strong> modifiche registrate • 
+            Prima modifica: {history.length > 0 && new Date(
+              history[history.length - 1].timestamp
+            ).toLocaleDateString('it-IT')}
+          </span>
+        </div>
       </div>
     </div>
   );
