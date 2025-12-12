@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import {
   BarChart3, FileText, Truck, HardDrive, AlertCircle,
-  Menu, X, ChevronLeft, ChevronRight
+  Menu, X, ChevronLeft, ChevronRight, Camera
 } from 'lucide-react';
 
 // Import dei componenti admin esistenti
@@ -10,6 +10,7 @@ import AdminInvoiceManager from './AdminInvoiceManager';
 import AdminMovimentazioniManager from './AdminMovimentazioniManager';
 import SegnalazioniManager from '../SegnalazioniManager';  // ✅ AGGIUNGI QUESTA
 import TxtFilesManager from '../TxtFilesManager';
+import DDTScanner from './DDTScanner';
 
 const AdminSidebarLayout = ({ 
   user, 
@@ -64,11 +65,17 @@ const AdminSidebarLayout = ({
     icon: AlertCircle,
     description: 'Gestione segnalazioni errori DDT'
   },
-    { 
-      id: 'txt-files', 
-      label: 'File TXT', 
+    {
+      id: 'txt-files',
+      label: 'File TXT',
       icon: HardDrive,
       description: 'Archivio file di conferma'
+    },
+    {
+      id: 'ddt-scanner',
+      label: 'Scanner DDT',
+      icon: Camera,
+      description: 'Scansiona DDT con OCR'
     }
   ];
 
@@ -119,6 +126,8 @@ const AdminSidebarLayout = ({
       return <SegnalazioniManager user={user} />;
       case 'txt-files':
         return <TxtFilesManager user={user} />;
+      case 'ddt-scanner':
+        return <DDTScanner user={user} />;
       default:
         return <AdminDashboard user={user} />; // Default a dashboard
     }

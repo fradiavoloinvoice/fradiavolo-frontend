@@ -162,9 +162,14 @@ const InvoiceProcessorApp = () => {
 
   const loadInvoicesFromSheet = async () => {
     console.log('🔄 GET /api/invoices ricevuta');
-    console.log('👤 Richiesta da utente:', user.email);
-    console.log('🏢 Punto vendita:', user.puntoVendita);
-    console.log('🔐 Ruolo utente:', user.role);
+    console.log('👤 Richiesta da utente:', user?.email);
+    console.log('🏢 Punto vendita:', user?.puntoVendita);
+    console.log('🔐 Ruolo utente:', user?.role);
+
+    if (!user) {
+      console.log('⚠️ User non disponibile, skip caricamento');
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -509,10 +514,10 @@ const InvoiceProcessorApp = () => {
                   Fradiavolo Dashboard
                 </h1>
                 <p className="text-xs sm:text-sm text-fradiavolo-red font-medium hidden sm:block">
-                  Punto vendita: {user.puntoVendita}
+                  Punto vendita: {user?.puntoVendita}
                 </p>
                 <p className="text-xs text-fradiavolo-red font-medium sm:hidden mobile-email">
-                  {user.puntoVendita.replace('FDV ', '')}
+                  {user?.puntoVendita?.replace('FDV ', '') || ''}
                 </p>
               </div>
             </div>
@@ -532,13 +537,13 @@ const InvoiceProcessorApp = () => {
 
               <div className="hidden sm:flex items-center space-x-2 text-sm text-fradiavolo-charcoal bg-fradiavolo-cream px-3 py-2 rounded-lg border border-fradiavolo-cream-dark">
                 <User className="h-4 w-4" />
-                <span className="mobile-email">{user.email}</span>
+                <span className="mobile-email">{user?.email || ''}</span>
               </div>
 
               {/* Mobile user info - compact */}
               <div className="sm:hidden flex items-center space-x-1 text-xs text-fradiavolo-charcoal bg-fradiavolo-cream px-2 py-1 rounded-lg border border-fradiavolo-cream-dark">
                 <User className="h-3 w-3" />
-                <span className="mobile-email-short">{user.email.split('@')[0]}</span>
+                <span className="mobile-email-short">{user?.email?.split('@')[0] || ''}</span>
               </div>
 
               <button
